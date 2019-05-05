@@ -5,17 +5,14 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
 public class MemTable implements Closeable {
 
-    private final long FLUSH_THRESHOLD;
+    private final long FLUSH_THRESHOLD_BYTES;
 
     private SortedMap<ByteBuffer, Item> data;
     private long sizeInBytes;
@@ -24,7 +21,7 @@ public class MemTable implements Closeable {
     public MemTable(File ssTablesDir, long MAX_HEAP) {
         data = new TreeMap<>();
         this.ssTablesDir = ssTablesDir;
-        FLUSH_THRESHOLD = MAX_HEAP / 3;
+        FLUSH_THRESHOLD_BYTES = MAX_HEAP / 8;
     }
 
     public Iterator<Item> iterator(ByteBuffer from) {
@@ -58,7 +55,7 @@ public class MemTable implements Closeable {
     }
 
     private boolean isFlushNeeded(Item item) {
-        return (sizeInBytes + item.getSizeInBytes()) > FLUSH_THRESHOLD;
+        return (sizeInBytes + item.getSizeInBytes()) > FLUSH_THRESHOLD_BYTES;
     }
 
     private void flush() {
@@ -88,7 +85,7 @@ public class MemTable implements Closeable {
             offsets.position(offsets.limit() - Long.BYTES).putLong((long) data.size());
             offsets.flip();
             fileChannel.write(offsets);
-            Files.move(path, pathComplete);
+            Files.move(path, pathComplete, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -4,11 +4,17 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.util.Comparator.comparing;
 
 public class Item implements Comparable<Item> {
 
+    static final Comparator<Item> COMPARATOR = comparing(Item::getKey).thenComparing(comparing(Item::getTimeStampAbs).reversed());
+    private static long millis = 0;
+
     static final ByteBuffer TOMBSTONE = ByteBuffer.allocate(0);
-    static final Comparator<Item> COMPARATOR = Comparator.comparing(Item::getKey).thenComparing(Item::getValue);
+    private static AtomicInteger additionalTime = new AtomicInteger();
     private final ByteBuffer key;
     private final ByteBuffer value;
     private final long timeStamp;
@@ -20,7 +26,7 @@ public class Item implements Comparable<Item> {
     }
 
     public static Item of(ByteBuffer key, ByteBuffer value) {
-        return new Item(key, value, System.currentTimeMillis());
+        return new Item(key, value, getCurrentTime());
     }
 
     public static Item of(ByteBuffer key, ByteBuffer value, long timeStamp) {
@@ -28,7 +34,7 @@ public class Item implements Comparable<Item> {
     }
 
     public static Item removed(ByteBuffer key) {
-        return new Item(key, TOMBSTONE, -System.currentTimeMillis());
+        return new Item(key, TOMBSTONE, -getCurrentTime());
     }
 
     public ByteBuffer getKey() {
@@ -41,6 +47,15 @@ public class Item implements Comparable<Item> {
 
     public long getTimeStamp() {
         return timeStamp;
+    }
+
+    private static long getCurrentTime() {
+        long systemCurrentTime = System.currentTimeMillis();
+        if (millis != systemCurrentTime) {
+            millis = systemCurrentTime;
+            additionalTime.set(0);
+        }
+        return millis * 1_000_000 + additionalTime.getAndIncrement();
     }
 
     public boolean isRemoved() {
@@ -61,6 +76,10 @@ public class Item implements Comparable<Item> {
                 + Long.BYTES
                 + valRem
                 + valLen;
+    }
+
+    public long getTimeStampAbs() {
+        return Math.abs(timeStamp);
     }
 
 }

@@ -19,9 +19,9 @@ public class MyDAO implements DAO {
 
     private ArrayList<SSTable> ssTables = new ArrayList<>();
 
-    public MyDAO(File data, long MAX_HEAP) throws IOException {
-        memTable = new MemTable(data, MAX_HEAP);
-        Files.walk(data.toPath()).filter(Files::isRegularFile).filter(p -> p.getFileName().toString().endsWith(".dat")).forEach(p ->
+    public MyDAO(File dataFolder, long MAX_HEAP) throws IOException {
+        memTable = new MemTable(dataFolder, MAX_HEAP);
+        Files.walk(dataFolder.toPath()).filter(Files::isRegularFile).filter(p -> p.getFileName().toString().endsWith(".dat")).forEach(p ->
                 ssTables.add(new SSTable(p.toFile()))
         );
     }
@@ -35,7 +35,8 @@ public class MyDAO implements DAO {
                 ssTables) {
             iterators.add(s.iterator(from));
         }
-        Iterator<Item> collapsedIter = Iters.collapseEquals(Iterators.mergeSorted(iterators, Item.COMPARATOR), Item::getKey);
+        Iterator<Item> mergedIter = Iterators.mergeSorted(iterators, Item.COMPARATOR);
+        Iterator<Item> collapsedIter = Iters.collapseEquals(mergedIter, Item::getKey);
         Iterator<Item> filteredIter = Iterators.filter(collapsedIter, i -> !i.isRemoved());
         return Iterators.transform(filteredIter, i -> Record.of(i.getKey(), i.getValue()));
     }
