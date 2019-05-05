@@ -12,7 +12,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Part of storage located at disk
+ * Part of storage located at disk.
  */
 
 public class SSTable {
@@ -22,7 +22,7 @@ public class SSTable {
     private long recordsAmount;
 
     /**
-     * Creates a new representation of data file
+     * Creates a new representation of data file.
      *
      * @param tableFile file with data
      */

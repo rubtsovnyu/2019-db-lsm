@@ -27,7 +27,7 @@ public class MyDAO implements DAO {
     private final List<SSTable> ssTables = new ArrayList<>();
 
     /**
-     * Constructs a new, empty storage
+     * Constructs a new, empty storage.
      *
      * @param dataFolder the folder which SSTables will be contained.
      * @param heapSizeInBytes JVM max heap size

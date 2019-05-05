@@ -69,7 +69,7 @@ public final class Item implements Comparable<Item> {
     }
 
     /**
-     * Returns size of current item in serialized form in bytes
+     * Returns size of current item in serialized form in bytes.
      *
      * @return size of item in bytes
      */

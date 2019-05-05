@@ -15,7 +15,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 /**
- * Part of storage located in RAM
+ * Part of storage located in RAM.
  */
 
 public class MemTable implements Closeable {
@@ -27,7 +27,7 @@ public class MemTable implements Closeable {
     private final File ssTablesDir;
 
     /**
-     * Creates a new RAM-storage
+     * Creates a new RAM-storage.
      *
      * @param ssTablesDir folder which MemTable will flush the data
      * @param heapSizeInBytes given JVM max heap size
