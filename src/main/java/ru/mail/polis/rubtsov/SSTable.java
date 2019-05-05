@@ -11,16 +11,26 @@ import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/**
+ * Part of storage located at disk
+ */
+
 public class SSTable {
 
     private ByteBuffer records;
     private LongBuffer offsets;
     private long recordsAmount;
 
-    public SSTable(File tableFile) {
+    /**
+     * Creates a new representation of data file
+     *
+     * @param tableFile file with data
+     */
+
+    public SSTable(final File tableFile) {
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
                 tableFile.toPath(), StandardOpenOption.READ)) {
-            ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY,
+            final ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY,
                     0, tableFile.length()).order(ByteOrder.BIG_ENDIAN);
             recordsAmount = mappedByteBuffer.getLong(mappedByteBuffer.limit() - Long.BYTES);
             offsets = mappedByteBuffer.duplicate()
@@ -34,8 +44,8 @@ public class SSTable {
         }
     }
 
-    private ByteBuffer getRecord(long index) {
-        long offset = offsets.get((int) index);
+    private ByteBuffer getRecord(final long index) {
+        final long offset = offsets.get((int) index);
         long recordLimit;
         if (index == recordsAmount - 1) {
             recordLimit = records.limit();
@@ -45,29 +55,29 @@ public class SSTable {
         return records.duplicate().position((int) offset).limit((int) recordLimit).slice().asReadOnlyBuffer();
     }
 
-    private ByteBuffer getKey(ByteBuffer record) {
-        ByteBuffer rec = record.duplicate();
-        int keySize = rec.getInt();
+    private ByteBuffer getKey(final ByteBuffer record) {
+        final ByteBuffer rec = record.duplicate();
+        final int keySize = rec.getInt();
         rec.limit(Integer.BYTES + keySize).slice().asReadOnlyBuffer();
         return rec;
     }
 
-    private long getTimeStamp(ByteBuffer record) {
-        ByteBuffer rec = record.duplicate();
+    private long getTimeStamp(final ByteBuffer record) {
+        final ByteBuffer rec = record.duplicate();
         rec.position(Integer.BYTES + rec.getInt());
         return rec.getLong();
     }
 
-    private ByteBuffer getValue(ByteBuffer record) {
-        ByteBuffer rec = record.duplicate();
-        int keySize = rec.getInt();
+    private ByteBuffer getValue(final ByteBuffer record) {
+        final ByteBuffer rec = record.duplicate();
+        final int keySize = rec.getInt();
         return rec.position(Integer.BYTES + keySize + Long.BYTES * 2).slice().asReadOnlyBuffer();
     }
 
-    private Item getItem(long pos) {
-        ByteBuffer rec = getRecord(pos);
-        ByteBuffer key = getKey(rec);
-        long timeStamp = getTimeStamp(rec);
+    private Item getItem(final long pos) {
+        final ByteBuffer rec = getRecord(pos);
+        final ByteBuffer key = getKey(rec);
+        final long timeStamp = getTimeStamp(rec);
         ByteBuffer value;
         if (timeStamp < 0) {
             value = Item.TOMBSTONE;
@@ -77,11 +87,12 @@ public class SSTable {
         return Item.of(key, value, timeStamp);
     }
 
-    private long getPosition(ByteBuffer key) {
-        long left = 0, right = recordsAmount - 1;
+    private long getPosition(final ByteBuffer key) {
+        long left = 0;
+        long right = recordsAmount - 1;
         while (left <= right) {
-            long mid = left + (right - left) / 2;
-            int compare = getKey(getRecord(mid)).compareTo(key);
+            final long mid = left + (right - left) / 2;
+            final int compare = getKey(getRecord(mid)).compareTo(key);
             if (compare > 0) {
                 right = mid - 1;
             } else if (compare < 0) {
@@ -93,7 +104,14 @@ public class SSTable {
         return left;
     }
 
-    public Iterator<Item> iterator(ByteBuffer from) {
+    /**
+     * Returns an iterator over the elements in this table.
+     *
+     * @param from the key from which to start the iteration.
+     * @return iterator
+     */
+
+    public Iterator<Item> iterator(final ByteBuffer from) {
         return new Iterator<Item>() {
             long pos = getPosition(from);
 
@@ -107,7 +125,7 @@ public class SSTable {
                 if (!hasNext()) {
                     throw new NoSuchElementException("No more elements");
                 }
-                Item item = getItem(pos);
+                final Item item = getItem(pos);
                 pos++;
                 return item;
             }
