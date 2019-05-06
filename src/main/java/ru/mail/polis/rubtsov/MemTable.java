@@ -102,7 +102,12 @@ public class MemTable implements Closeable {
                     data.values()) {
                 final ByteBuffer key = v.getKey();
                 final ByteBuffer value = v.getValue();
-                final ByteBuffer row = ByteBuffer.allocate((int) v.getSizeInBytes());
+                final ByteBuffer row;
+                if (!v.isRemoved() && (value.remaining() == 0)) {
+                    row = ByteBuffer.allocate((int) v.getSizeInBytes() + Long.BYTES);
+                } else {
+                    row = ByteBuffer.allocate((int) v.getSizeInBytes());
+                }
                 row.putInt(key.remaining()).put(key.duplicate()).putLong(v.getTimeStamp());
                 if (!v.isRemoved()) {
                     row.putLong(value.remaining()).put(value.duplicate());
