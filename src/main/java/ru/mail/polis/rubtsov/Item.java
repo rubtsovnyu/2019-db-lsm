@@ -77,7 +77,7 @@ public final class Item implements Comparable<Item> {
     public long getSizeInBytes() {
         final int keyRem = key.remaining();
         final int valRem = value.remaining();
-        final int valLen = value.remaining() == 0 ? 0 : Long.BYTES;
+        final int valLen = isRemoved() ? 0 : Long.BYTES;
         return Integer.BYTES
                 + keyRem
                 + Long.BYTES
