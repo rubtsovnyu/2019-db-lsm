@@ -57,12 +57,7 @@ public class MemTable implements Closeable {
         if (isFlushNeeded(val)) {
             flush();
         }
-        final Item previousItem = data.put(key, val);
-        if (previousItem == null) {
-            sizeInBytes += val.getSizeInBytes();
-        } else {
-            sizeInBytes += -previousItem.getSizeInBytes() + val.getSizeInBytes();
-        }
+        calcNewSize(data.put(key, val), val);
     }
 
     /**
@@ -76,15 +71,18 @@ public class MemTable implements Closeable {
         if (isFlushNeeded(dead)) {
             flush();
         }
-        final Item previousItem = data.put(key, dead);
+        calcNewSize(data.put(key, dead), dead);
+    }
+
+    private void calcNewSize(Item previousItem, Item val) {
         if (previousItem == null) {
-            sizeInBytes += dead.getSizeInBytes();
+            sizeInBytes += val.getSizeInBytes();
         } else {
-            sizeInBytes += -previousItem.getSizeInBytes() + dead.getSizeInBytes();
+            sizeInBytes += -previousItem.getSizeInBytes() + val.getSizeInBytes();
         }
     }
 
-    private boolean isFlushNeeded(final Item item) {
+    public boolean isFlushNeeded(final Item item) {
         return (sizeInBytes + item.getSizeInBytes()) > flushThresholdInBytes;
     }
 
