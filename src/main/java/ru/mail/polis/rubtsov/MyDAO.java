@@ -22,7 +22,7 @@ import java.util.stream.Stream;
  */
 
 public class MyDAO implements DAO {
-    private static final int COMPACTION_THRESHOLD = 16;
+    private static final int COMPACTION_THRESHOLD = 8;
 
     private final MemTable memTable;
     private final List<SSTable> ssTables = new ArrayList<>();
