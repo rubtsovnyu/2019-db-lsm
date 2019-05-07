@@ -50,7 +50,7 @@ public final class SSTable {
                     .slice().asReadOnlyBuffer();
             testTable();
         } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(e);
         }
     }
 
