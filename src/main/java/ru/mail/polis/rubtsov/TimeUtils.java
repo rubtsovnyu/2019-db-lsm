@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Simple nano time to avoid collisions.
  */
 
-public class TimeUtils {
+public final class TimeUtils {
     private static long millis;
     private static AtomicInteger additionalTime = new AtomicInteger();
 
@@ -17,7 +17,7 @@ public class TimeUtils {
      * Returns current time.
      * @return current time in nanos
      */
-    
+
     public static long getCurrentTime() {
         final long systemCurrentTime = System.currentTimeMillis();
         if (millis != systemCurrentTime) {

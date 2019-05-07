@@ -39,7 +39,6 @@ public class SSTable {
             records = mappedByteBuffer.duplicate()
                     .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
                     .slice().asReadOnlyBuffer();
-            testFile();
         }
     }
 
@@ -131,8 +130,15 @@ public class SSTable {
         };
     }
 
-    private void testFile() throws IllegalArgumentException, IndexOutOfBoundsException {
-        Iterator<Item> itemIterator = iterator(ByteBuffer.allocate(0));
+    /**
+     * Tests new SSTable for validity. Throws an exceptions if file is corrupted.
+     *
+     * @throws IllegalArgumentException
+     * @throws IndexOutOfBoundsException
+     */
+
+    public void testTable() throws IllegalArgumentException, IndexOutOfBoundsException {
+        final Iterator<Item> itemIterator = iterator(ByteBuffer.allocate(0));
         while (itemIterator.hasNext()) {
             itemIterator.next();
         }

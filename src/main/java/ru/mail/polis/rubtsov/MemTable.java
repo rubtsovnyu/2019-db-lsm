@@ -73,7 +73,7 @@ public class MemTable implements Closeable {
         calcNewSize(data.put(key, dead), dead);
     }
 
-    private void calcNewSize(Item previousItem, Item val) {
+    private void calcNewSize(final Item previousItem, final Item val) {
         if (previousItem == null) {
             sizeInBytes += val.getSizeInBytes();
         } else {

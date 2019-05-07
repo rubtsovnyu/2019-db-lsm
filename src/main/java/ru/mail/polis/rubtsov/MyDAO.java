@@ -39,16 +39,17 @@ public class MyDAO implements DAO {
                     .filter(p -> p.getFileName().toString().endsWith(".dat"))
                     .forEach(p -> initNewSSTable(p.toFile()));
         } catch (IOException e) {
-            System.err.println("Something wrong with data.");
-            e.printStackTrace();
+            SimpleLogger.log("Something wrong with data.");
         }
     }
 
-    private void initNewSSTable(File ssTableFile) {
+    private void initNewSSTable(final File ssTableFile) {
         try {
-            ssTables.add(new SSTable(ssTableFile));
+            SSTable ssTable = new SSTable(ssTableFile);
+            ssTable.testTable();
+            ssTables.add(ssTable);
         } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
-            System.err.println("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
+            SimpleLogger.log("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
         }
     }
 
