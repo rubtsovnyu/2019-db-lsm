@@ -21,19 +21,22 @@ import java.util.NoSuchElementException;
  * Part of storage located at disk.
  */
 
-public class SSTable {
-    private ByteBuffer records;
-    private LongBuffer offsets;
-    private long recordsAmount;
+public final class SSTable {
+    private final ByteBuffer records;
+    private final LongBuffer offsets;
+    private final long recordsAmount;
+
+    private static final String TEMP_FILE_EXTENSTION = ".tmp";
+    public static final String VALID_FILE_EXTENSTION = ".dat";
 
     /**
      * Creates a new representation of data file.
      *
      * @param tableFile file with data
+     * @throws IllegalArgumentException if file corrupted
      */
 
-    public SSTable(final File tableFile) throws IOException,
-            IllegalArgumentException, IndexOutOfBoundsException {
+    public SSTable(final File tableFile) {
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
                 tableFile.toPath(), StandardOpenOption.READ)) {
             final ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY,
@@ -45,6 +48,9 @@ public class SSTable {
             records = mappedByteBuffer.duplicate()
                     .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
                     .slice().asReadOnlyBuffer();
+            testTable();
+        } catch (Exception e) {
+            throw new IllegalArgumentException();
         }
     }
 
@@ -109,7 +115,9 @@ public class SSTable {
     }
 
     /**
-     * Writes new SSTable on disk.
+     * Writes new SSTable on disk in format:
+     * [key size][key][timestamp] (if value exists [value size][value]) * n times
+     * at the end of file - [array of longs that contains offsets][offsets number]
      *
      * @param items iterator of data that should be written
      * @param ssTablesDir data files directory
@@ -121,8 +129,9 @@ public class SSTable {
         final List<Long> offsets = new ArrayList<>();
         long offset = 0;
         offsets.add(offset);
-        final String fileName = UUID.randomUUID().toString() + ".tmp";
-        final String fileNameComplete = fileName.substring(0, fileName.length() - 3) + "dat";
+        String uuid = UUID.randomUUID().toString();
+        final String fileName = uuid + TEMP_FILE_EXTENSTION;
+        final String fileNameComplete = uuid + VALID_FILE_EXTENSTION;
         final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
         final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
         Item item;
@@ -145,8 +154,7 @@ public class SSTable {
             final int offsetsCount = offsets.size();
             offsets.set(offsetsCount - 1, (long) offsetsCount - 1);
             final ByteBuffer offsetsByteBuffer = ByteBuffer.allocate(offsetsCount * Long.BYTES);
-            for (final Long i :
-                    offsets) {
+            for (final Long i : offsets) {
                 offsetsByteBuffer.putLong(i);
             }
             offsetsByteBuffer.flip();
@@ -158,13 +166,10 @@ public class SSTable {
 
     /**
      * Tests new SSTable for validity. Throws an exceptions if file is corrupted.
-     *
-     * @throws IllegalArgumentException  error when setting a position that not really exists
-     * @throws IndexOutOfBoundsException database structure corrupted
      */
 
-    public void testTable() throws IllegalArgumentException, IndexOutOfBoundsException {
-        final Iterator<Item> itemIterator = iterator(ByteBuffer.allocate(0));
+    private void testTable() {
+        final Iterator<Item> itemIterator = iterator(Item.TOMBSTONE);
         while (itemIterator.hasNext()) {
             itemIterator.next();
         }

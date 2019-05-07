@@ -2,6 +2,8 @@ package ru.mail.polis.rubtsov;
 
 import com.google.common.collect.Iterators;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.mail.polis.DAO;
 import ru.mail.polis.Iters;
 import ru.mail.polis.Record;
@@ -12,9 +14,9 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
@@ -27,7 +29,7 @@ public class MyDAO implements DAO {
     private final MemTable memTable;
     private final List<SSTable> ssTables = new ArrayList<>();
     private final File ssTablesDir;
-    private final Logger logger = Logger.getLogger("MyDAO");
+    private final Logger logger = LoggerFactory.getLogger(MyDAO.class);
 
 
     /**
@@ -37,25 +39,22 @@ public class MyDAO implements DAO {
      * @param heapSizeInBytes JVM max heap size
      */
 
-    public MyDAO(final File dataFolder, final long heapSizeInBytes) {
+    public MyDAO(final File dataFolder, final long heapSizeInBytes) throws IOException {
         memTable = new MemTable(dataFolder, heapSizeInBytes);
         ssTablesDir = dataFolder;
-        try (Stream<Path> files = Files.walk(ssTablesDir.toPath())) {
+        try (Stream<Path> files = Files.list(ssTablesDir.toPath())) {
             files.filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().endsWith(".dat"))
+                    .filter(p -> p.getFileName().toString().endsWith(SSTable.VALID_FILE_EXTENSTION))
                     .forEach(p -> initNewSSTable(p.toFile()));
-        } catch (IOException e) {
-            logger.warning("Something wrong with data.");
         }
     }
 
     private void initNewSSTable(final File ssTableFile) {
         try {
             final SSTable ssTable = new SSTable(ssTableFile);
-            ssTable.testTable();
             ssTables.add(ssTable);
-        } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
-            logger.warning("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
+        } catch (IllegalArgumentException e) {
+            logger.error("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
         }
     }
 
@@ -67,10 +66,9 @@ public class MyDAO implements DAO {
     }
 
     private Iterator<Item> itemIterator(@NotNull final ByteBuffer from) {
-        final ArrayList<Iterator<Item>> iterators = new ArrayList<>();
+        final Collection<Iterator<Item>> iterators = new ArrayList<>();
         iterators.add(memTable.iterator(from));
-        for (final SSTable s :
-                ssTables) {
+        for (final SSTable s : ssTables) {
             iterators.add(s.iterator(from));
         }
         final Iterator<Item> mergedIter = Iterators.mergeSorted(iterators, Item.COMPARATOR);
@@ -81,23 +79,17 @@ public class MyDAO implements DAO {
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
         if (memTable.isFlushNeeded(key, value)) {
-            if (dropTable()) {
-                memTable.upsert(key, value);
-            }
-        } else {
-            memTable.upsert(key, value);
+            flushTable();
         }
+        memTable.upsert(key, value);
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         if (memTable.isFlushNeeded(key, Item.TOMBSTONE)) {
-            if (dropTable()) {
-                memTable.remove(key);
-            }
-        } else {
-            memTable.remove(key);
+            flushTable();
         }
+        memTable.remove(key);
     }
 
     @Override
@@ -105,22 +97,17 @@ public class MyDAO implements DAO {
         memTable.close();
     }
 
-    private boolean dropTable() {
+    private void flushTable() throws IOException {
         final Path flushedFilePath = memTable.flush();
-        if (flushedFilePath == null) {
-            return false;
-        } else {
-            initNewSSTable(flushedFilePath.toFile());
-            if (ssTables.size() > COMPACTION_THRESHOLD) {
-                compaction();
-            }
-            return true;
+        initNewSSTable(flushedFilePath.toFile());
+        if (ssTables.size() > COMPACTION_THRESHOLD) {
+            compaction();
         }
     }
 
-    private void compaction() {
-        final Iterator<Item> itemIterator = itemIterator(ByteBuffer.allocate(0));
-        try (Stream<Path> files = Files.walk(ssTablesDir.toPath())) {
+    private void compaction() throws IOException {
+        final Iterator<Item> itemIterator = itemIterator(Item.TOMBSTONE);
+        try (Stream<Path> files = Files.list(ssTablesDir.toPath())) {
             final Path mergedTable = SSTable.writeNewTable(itemIterator, ssTablesDir);
             if (mergedTable != null) {
                 files.filter(Files::isRegularFile)
@@ -131,8 +118,6 @@ public class MyDAO implements DAO {
                 ssTables.clear();
                 initNewSSTable(mergedTable.toFile());
             }
-        } catch (IOException e) {
-            logger.warning("Compaction failed.");
         }
     }
 
@@ -140,9 +125,7 @@ public class MyDAO implements DAO {
         try {
             Files.delete(p);
         } catch (IOException e) {
-            logger.warning("Can't remove old file: " + p.getFileName().toString());
+            logger.error("Can't remove old file: " + p.getFileName().toString());
         }
     }
-
-
 }

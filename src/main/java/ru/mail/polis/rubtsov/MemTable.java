@@ -8,19 +8,17 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.logging.Logger;
 
 /**
  * Part of storage located in RAM.
  */
 
-public class MemTable implements Closeable {
+public final class MemTable implements Closeable {
     private final long flushThresholdInBytes;
 
     private final SortedMap<ByteBuffer, Item> data;
     private long sizeInBytes;
     private final File ssTablesDir;
-    private final Logger logger = Logger.getLogger("MyDAO");
 
     /**
      * Creates a new RAM-storage.
@@ -83,16 +81,11 @@ public class MemTable implements Closeable {
      * @return path of new SSTable or null if something went wrong during flush
      */
 
-    public Path flush() {
-        try {
-            final Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
-            data.clear();
-            sizeInBytes = 0;
-            return newSSTablePath;
-        } catch (IOException e) {
-            logger.warning("Can't flush MemTable to file.");
-            return null;
-        }
+    public Path flush() throws IOException {
+        final Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
+        data.clear();
+        sizeInBytes = 0;
+        return newSSTablePath;
     }
 
     @Override

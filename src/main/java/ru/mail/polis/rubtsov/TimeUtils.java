@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class TimeUtils {
     private static long millis;
-    private static AtomicInteger additionalTime = new AtomicInteger();
+    private static int additionalTime;
 
     private TimeUtils() {
     }
@@ -22,8 +22,8 @@ public final class TimeUtils {
         final long systemCurrentTime = System.currentTimeMillis();
         if (millis != systemCurrentTime) {
             millis = systemCurrentTime;
-            additionalTime.set(0);
+            additionalTime = 0;
         }
-        return millis * 1_000_000 + additionalTime.getAndIncrement();
+        return millis * 1_000_000 + additionalTime++;
     }
 }
