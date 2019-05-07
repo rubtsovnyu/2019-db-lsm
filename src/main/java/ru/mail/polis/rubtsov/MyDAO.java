@@ -21,7 +21,6 @@ import java.util.stream.Stream;
  */
 
 public class MyDAO implements DAO {
-
     private final MemTable memTable;
 
     private final List<SSTable> ssTables = new ArrayList<>();
@@ -40,6 +39,7 @@ public class MyDAO implements DAO {
                     .filter(p -> p.getFileName().toString().endsWith(".dat"))
                     .forEach(p -> initNewSSTable(p.toFile()));
         } catch (IOException e) {
+            System.err.println("Something wrong with data.");
             e.printStackTrace();
         }
     }
@@ -47,8 +47,8 @@ public class MyDAO implements DAO {
     private void initNewSSTable(File ssTableFile) {
         try {
             ssTables.add(new SSTable(ssTableFile));
-        } catch (Exception e) {
-            System.err.println("Something wrong with file: \"" + ssTableFile.getName() + "\", skipped.");
+        } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
+            System.err.println("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
         }
     }
 

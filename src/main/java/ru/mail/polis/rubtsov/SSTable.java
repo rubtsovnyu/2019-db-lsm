@@ -1,6 +1,7 @@
 package ru.mail.polis.rubtsov;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
@@ -15,7 +16,6 @@ import java.util.NoSuchElementException;
  */
 
 public class SSTable {
-
     private ByteBuffer records;
     private LongBuffer offsets;
     private long recordsAmount;
@@ -26,7 +26,8 @@ public class SSTable {
      * @param tableFile file with data
      */
 
-    public SSTable(final File tableFile) throws Exception {
+    public SSTable(final File tableFile) throws IOException,
+            IllegalArgumentException, IndexOutOfBoundsException {
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
                 tableFile.toPath(), StandardOpenOption.READ)) {
             final ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY,
@@ -130,7 +131,7 @@ public class SSTable {
         };
     }
 
-    private void testFile() throws Exception {
+    private void testFile() throws IllegalArgumentException, IndexOutOfBoundsException {
         Iterator<Item> itemIterator = iterator(ByteBuffer.allocate(0));
         while (itemIterator.hasNext()) {
             itemIterator.next();

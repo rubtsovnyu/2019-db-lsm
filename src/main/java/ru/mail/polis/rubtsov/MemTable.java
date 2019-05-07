@@ -19,7 +19,6 @@ import java.util.TreeMap;
  */
 
 public class MemTable implements Closeable {
-
     private final long flushThresholdInBytes;
 
     private final SortedMap<ByteBuffer, Item> data;
@@ -90,7 +89,7 @@ public class MemTable implements Closeable {
         final ByteBuffer offsets = ByteBuffer.allocate((data.size() + 1) * Long.BYTES);
         long offset = 0;
         offsets.putLong(offset);
-        final String fileName = System.currentTimeMillis() + ".tmp";
+        final String fileName = TimeUtils.getCurrentTime() + ".tmp";
         final String fileNameComplete = fileName.substring(0, fileName.length() - 3) + "dat";
         final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
         final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
