@@ -49,7 +49,7 @@ public final class SSTable {
                     .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
                     .slice().asReadOnlyBuffer();
             testTable();
-        } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
+        } catch (IOException | IndexOutOfBoundsException e) {
             throw new IllegalArgumentException(e);
         }
     }
