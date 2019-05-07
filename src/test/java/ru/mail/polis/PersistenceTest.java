@@ -130,26 +130,89 @@ class PersistenceTest extends TestBase {
     }
 
     @Test
-    void flush(@TempDir File data) throws IOException {
-        // Reference value
-        final int valueSize = 1024 * 1024;
-        final ByteBuffer value = randomBuffer(valueSize);
-        final int values = (int) (DAOFactory.MAX_HEAP / valueSize + 1);
-        final Collection<ByteBuffer> keys = new ArrayList<>(values);
+    void hugeKeys(@TempDir File data) throws IOException {
+        // Reference key
+        final int size = 1024 * 1024;
+        final ByteBuffer suffix = randomBuffer(size);
+        final ByteBuffer value = randomValue();
+        final int records = (int) (DAOFactory.MAX_HEAP / size + 1);
+        final Collection<ByteBuffer> keys = new ArrayList<>(records);
 
         // Create, fill and close storage
         try (DAO dao = DAOFactory.create(data)) {
-            for (int i = 0; i < values; i++) {
+            for (int i = 0; i < records; i++) {
                 final ByteBuffer key = randomKey();
                 keys.add(key);
-                dao.upsert(key, join(key, value));
+                dao.upsert(join(key, suffix), value);
             }
         }
 
         // Recreate dao and check contents
         try (DAO dao = DAOFactory.create(data)) {
             for (final ByteBuffer key : keys) {
-                assertEquals(join(key, value), dao.get(key));
+                assertEquals(value, dao.get(join(key, suffix)));
+            }
+        }
+    }
+
+    @Test
+    void hugeValues(@TempDir File data) throws IOException {
+        // Reference value
+        final int size = 1024 * 1024;
+        final ByteBuffer suffix = randomBuffer(size);
+        final int records = (int) (DAOFactory.MAX_HEAP / size + 1);
+        final Collection<ByteBuffer> keys = new ArrayList<>(records);
+
+        // Create, fill and close storage
+        try (DAO dao = DAOFactory.create(data)) {
+            for (int i = 0; i < records; i++) {
+                final ByteBuffer key = randomKey();
+                keys.add(key);
+                dao.upsert(key, join(key, suffix));
+            }
+        }
+
+        // Recreate dao and check contents
+        try (DAO dao = DAOFactory.create(data)) {
+            for (final ByteBuffer key : keys) {
+                assertEquals(join(key, suffix), dao.get(key));
+            }
+        }
+    }
+
+    @Test
+    void manyRecords(@TempDir File data) throws IOException {
+        // Records
+        final int records = 1_000_000;
+        final int step = records / 1000;
+
+        // Create, fill and close storage (LSM is fast for writes)
+        try (DAO dao = DAOFactory.create(data)) {
+            for (int i = 0; i < records; i++) {
+                final ByteBuffer key = ByteBuffer.allocate(Integer.BYTES);
+                key.putInt(i);
+                key.rewind();
+
+                final ByteBuffer value = ByteBuffer.allocate(Byte.BYTES);
+                value.put((byte) i);
+                value.rewind();
+
+                dao.upsert(key, value);
+            }
+        }
+
+        // Recreate dao and check the contents with sampling (LSM is slow for reads)
+        try (DAO dao = DAOFactory.create(data)) {
+            for (int i = records - 1; i >= 0; i -= step) {
+                final ByteBuffer key = ByteBuffer.allocate(Integer.BYTES);
+                key.putInt(i);
+                key.rewind();
+
+                final ByteBuffer value = ByteBuffer.allocate(Byte.BYTES);
+                value.put((byte) i);
+                value.rewind();
+
+                assertEquals(value, dao.get(key));
             }
         }
     }
