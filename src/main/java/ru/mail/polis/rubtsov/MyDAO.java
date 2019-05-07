@@ -38,9 +38,17 @@ public class MyDAO implements DAO {
         try (Stream<Path> files = Files.walk(dataFolder.toPath())) {
             files.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(".dat"))
-                    .forEach(p -> ssTables.add(new SSTable(p.toFile())));
+                    .forEach(p -> initNewSSTable(p.toFile()));
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void initNewSSTable(File ssTableFile) {
+        try {
+            ssTables.add(new SSTable(ssTableFile));
+        } catch (Exception e) {
+            System.err.println("Something wrong with file: \"" + ssTableFile.getName() + "\", skipped.");
         }
     }
 

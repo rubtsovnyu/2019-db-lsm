@@ -1,7 +1,6 @@
 package ru.mail.polis.rubtsov;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
@@ -27,7 +26,7 @@ public class SSTable {
      * @param tableFile file with data
      */
 
-    public SSTable(final File tableFile) {
+    public SSTable(final File tableFile) throws Exception {
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
                 tableFile.toPath(), StandardOpenOption.READ)) {
             final ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY,
@@ -39,8 +38,7 @@ public class SSTable {
             records = mappedByteBuffer.duplicate()
                     .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
                     .slice().asReadOnlyBuffer();
-        } catch (IOException e) {
-            e.printStackTrace();
+            testFile();
         }
     }
 
@@ -130,5 +128,12 @@ public class SSTable {
                 return item;
             }
         };
+    }
+
+    private void testFile() throws Exception {
+        Iterator<Item> itemIterator = iterator(ByteBuffer.allocate(0));
+        while (itemIterator.hasNext()) {
+            itemIterator.next();
+        }
     }
 }
