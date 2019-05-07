@@ -25,7 +25,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -184,32 +187,46 @@ class PersistenceTest extends TestBase {
     void manyRecords(@TempDir File data) throws IOException {
         // Records
         final int records = 1_000_000;
-        final int step = records / 1000;
+        final int sampleCount = records / 1000;
+
+        final long keySeed = System.currentTimeMillis();
+        final long valueSeed = new Random(keySeed).nextLong();
+
+        final Random keys = new Random(keySeed);
+        final Random values = new Random(valueSeed);
+        final Map<Integer, Byte> samples = new HashMap<>(sampleCount);
 
         // Create, fill and close storage (LSM is fast for writes)
-        try (DAO dao = DAOFactory.create(data)) {
+        try (final DAO dao = DAOFactory.create(data)) {
             for (int i = 0; i < records; i++) {
+                final int keyPayload = keys.nextInt();
                 final ByteBuffer key = ByteBuffer.allocate(Integer.BYTES);
-                key.putInt(i);
+                key.putInt(keyPayload);
                 key.rewind();
 
+                final byte valuePayload = (byte) values.nextInt();
                 final ByteBuffer value = ByteBuffer.allocate(Byte.BYTES);
-                value.put((byte) i);
+                value.put(valuePayload);
                 value.rewind();
 
                 dao.upsert(key, value);
+
+                // store the latest value by key
+                if (i % sampleCount == 0) {
+                    samples.put(keyPayload, valuePayload);
+                }
             }
         }
 
         // Recreate dao and check the contents with sampling (LSM is slow for reads)
-        try (DAO dao = DAOFactory.create(data)) {
-            for (int i = records - 1; i >= 0; i -= step) {
+        try (final DAO dao = DAOFactory.create(data)) {
+            for (final Map.Entry<Integer, Byte> sample : samples.entrySet()) {
                 final ByteBuffer key = ByteBuffer.allocate(Integer.BYTES);
-                key.putInt(i);
+                key.putInt(sample.getKey());
                 key.rewind();
 
                 final ByteBuffer value = ByteBuffer.allocate(Byte.BYTES);
-                value.put((byte) i);
+                value.put(sample.getValue());
                 value.rewind();
 
                 assertEquals(value, dao.get(key));
