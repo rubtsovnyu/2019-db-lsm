@@ -77,9 +77,15 @@ public class MemTable implements Closeable {
         return (sizeInBytes + item.getSizeInBytes()) > flushThresholdInBytes;
     }
 
+    /**
+     * Drops current MemTable to file.
+     *
+     * @return path of new SSTable or null if something went wrong during flush
+     */
+
     public Path flush() {
         try {
-            Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
+            final Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
             data.clear();
             sizeInBytes = 0;
             return newSSTablePath;

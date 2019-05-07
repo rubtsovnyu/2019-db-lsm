@@ -62,7 +62,7 @@ public class MyDAO implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
-        Iterator<Item> itemIterator = itemIterator(from);
+        final Iterator<Item> itemIterator = itemIterator(from);
         return Iterators.transform(itemIterator, i -> Record.of(i.getKey(), i.getValue()));
     }
 
@@ -107,33 +107,27 @@ public class MyDAO implements DAO {
 
     private boolean dropTable() {
         final Path flushedFilePath = memTable.flush();
-        if (flushedFilePath != null) {
+        if (flushedFilePath == null) {
+            return false;
+        } else {
             initNewSSTable(flushedFilePath.toFile());
             if (ssTables.size() > COMPACTION_THRESHOLD) {
                 compaction();
             }
             return true;
-        } else {
-            return false;
         }
     }
 
     private void compaction() {
         final Iterator<Item> itemIterator = itemIterator(ByteBuffer.allocate(0));
         try (Stream<Path> files = Files.walk(ssTablesDir.toPath())) {
-            Path mergedTable = SSTable.writeNewTable(itemIterator, ssTablesDir);
+            final Path mergedTable = SSTable.writeNewTable(itemIterator, ssTablesDir);
             if (mergedTable != null) {
                 files.filter(Files::isRegularFile)
                         .filter(p -> p.getFileName().toString().endsWith(".dat"))
                         .filter(p -> !p.getFileName().toString()
                                 .equals(mergedTable.getFileName().toString()))
-                        .forEach(p -> {
-                            try {
-                                Files.delete(p);
-                            } catch (IOException e) {
-                                logger.warning("Can't remove old file: " + p.getFileName().toString());
-                            }
-                        });
+                        .forEach(this::removeFile);
                 ssTables.clear();
                 initNewSSTable(mergedTable.toFile());
             }
@@ -141,4 +135,14 @@ public class MyDAO implements DAO {
             logger.warning("Compaction failed.");
         }
     }
+
+    private void removeFile(final Path p) {
+        try {
+            Files.delete(p);
+        } catch (IOException e) {
+            logger.warning("Can't remove old file: " + p.getFileName().toString());
+        }
+    }
+
+
 }

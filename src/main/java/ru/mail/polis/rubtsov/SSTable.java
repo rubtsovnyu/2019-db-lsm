@@ -6,8 +6,16 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.UUID;
+import java.util.NoSuchElementException;
 
 /**
  * Part of storage located at disk.
@@ -100,18 +108,28 @@ public class SSTable {
         return left;
     }
 
-    public static Path writeNewTable(Iterator<Item> items, File ssTablesDir) throws IOException {
-        List<Long> offsets = new ArrayList<>();
+    /**
+     * Writes new SSTable on disk.
+     *
+     * @param items iterator of data that should be written
+     * @param ssTablesDir data files directory
+     * @return path of new file
+     * @throws IOException if something went wrong during writing
+     */
+
+    public static Path writeNewTable(final Iterator<Item> items, final File ssTablesDir) throws IOException {
+        final List<Long> offsets = new ArrayList<>();
         long offset = 0;
         offsets.add(offset);
         final String fileName = UUID.randomUUID().toString() + ".tmp";
         final String fileNameComplete = fileName.substring(0, fileName.length() - 3) + "dat";
         final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
         final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
+        Item item;
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(path,
                 StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
             while (items.hasNext()) {
-                Item item = items.next();
+                item = items.next();
                 final ByteBuffer key = item.getKey();
                 final ByteBuffer value = item.getValue();
                 final ByteBuffer row = ByteBuffer.allocate((int) item.getSizeInBytes());
@@ -124,10 +142,10 @@ public class SSTable {
                 row.flip();
                 fileChannel.write(row);
             }
-            int offsetsCount = offsets.size();
+            final int offsetsCount = offsets.size();
             offsets.set(offsetsCount - 1, (long) offsetsCount - 1);
             final ByteBuffer offsetsByteBuffer = ByteBuffer.allocate(offsetsCount * Long.BYTES);
-            for (Long i :
+            for (final Long i :
                     offsets) {
                 offsetsByteBuffer.putLong(i);
             }
