@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
@@ -22,8 +23,8 @@ import java.util.stream.Stream;
 
 public class MyDAO implements DAO {
     private final MemTable memTable;
-
     private final List<SSTable> ssTables = new ArrayList<>();
+    private final Logger logger = Logger.getLogger("MyDAO");
 
     /**
      * Constructs a new, empty storage.
@@ -39,17 +40,17 @@ public class MyDAO implements DAO {
                     .filter(p -> p.getFileName().toString().endsWith(".dat"))
                     .forEach(p -> initNewSSTable(p.toFile()));
         } catch (IOException e) {
-            SimpleLogger.log("Something wrong with data.");
+            logger.warning("Something wrong with data.");
         }
     }
 
     private void initNewSSTable(final File ssTableFile) {
         try {
-            SSTable ssTable = new SSTable(ssTableFile);
+            final SSTable ssTable = new SSTable(ssTableFile);
             ssTable.testTable();
             ssTables.add(ssTable);
         } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
-            SimpleLogger.log("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
+            logger.warning("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
         }
     }
 

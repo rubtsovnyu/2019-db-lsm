@@ -133,8 +133,8 @@ public class SSTable {
     /**
      * Tests new SSTable for validity. Throws an exceptions if file is corrupted.
      *
-     * @throws IllegalArgumentException
-     * @throws IndexOutOfBoundsException
+     * @throws IllegalArgumentException error when setting a position that not really exists
+     * @throws IndexOutOfBoundsException database structure corrupted
      */
 
     public void testTable() throws IllegalArgumentException, IndexOutOfBoundsException {
