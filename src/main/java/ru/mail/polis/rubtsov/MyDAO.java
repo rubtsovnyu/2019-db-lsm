@@ -22,20 +22,25 @@ import java.util.stream.Stream;
  */
 
 public class MyDAO implements DAO {
+    private static final int COMPACTION_THRESHOLD = 8;
+
     private final MemTable memTable;
     private final List<SSTable> ssTables = new ArrayList<>();
+    private final File ssTablesDir;
     private final Logger logger = Logger.getLogger("MyDAO");
+
 
     /**
      * Constructs a new, empty storage.
      *
      * @param dataFolder the folder which SSTables will be contained.
      * @param heapSizeInBytes JVM max heap size
-     * @throws IOException if something wrong with data folder
      */
+
     public MyDAO(final File dataFolder, final long heapSizeInBytes) {
         memTable = new MemTable(dataFolder, heapSizeInBytes);
-        try (Stream<Path> files = Files.walk(dataFolder.toPath())) {
+        ssTablesDir = dataFolder;
+        try (Stream<Path> files = Files.walk(ssTablesDir.toPath())) {
             files.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(".dat"))
                     .forEach(p -> initNewSSTable(p.toFile()));
@@ -57,6 +62,11 @@ public class MyDAO implements DAO {
     @NotNull
     @Override
     public Iterator<Record> iterator(@NotNull final ByteBuffer from) throws IOException {
+        Iterator<Item> itemIterator = itemIterator(from);
+        return Iterators.transform(itemIterator, i -> Record.of(i.getKey(), i.getValue()));
+    }
+
+    private Iterator<Item> itemIterator(@NotNull final ByteBuffer from) {
         final ArrayList<Iterator<Item>> iterators = new ArrayList<>();
         iterators.add(memTable.iterator(from));
         for (final SSTable s :
@@ -65,22 +75,70 @@ public class MyDAO implements DAO {
         }
         final Iterator<Item> mergedIter = Iterators.mergeSorted(iterators, Item.COMPARATOR);
         final Iterator<Item> collapsedIter = Iters.collapseEquals(mergedIter, Item::getKey);
-        final Iterator<Item> filteredIter = Iterators.filter(collapsedIter, i -> !i.isRemoved());
-        return Iterators.transform(filteredIter, i -> Record.of(i.getKey(), i.getValue()));
+        return Iterators.filter(collapsedIter, i -> !i.isRemoved());
     }
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        memTable.upsert(key, value);
+        if (memTable.isFlushNeeded(key, value)) {
+            if (dropTable()) {
+                memTable.upsert(key, value);
+            }
+        } else {
+            memTable.upsert(key, value);
+        }
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        memTable.remove(key);
+        if (memTable.isFlushNeeded(key, Item.TOMBSTONE)) {
+            if (dropTable()) {
+                memTable.remove(key);
+            }
+        } else {
+            memTable.remove(key);
+        }
     }
 
     @Override
     public void close() throws IOException {
         memTable.close();
+    }
+
+    private boolean dropTable() {
+        final Path flushedFilePath = memTable.flush();
+        if (flushedFilePath != null) {
+            initNewSSTable(flushedFilePath.toFile());
+            if (ssTables.size() > COMPACTION_THRESHOLD) {
+                compaction();
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private void compaction() {
+        final Iterator<Item> itemIterator = itemIterator(ByteBuffer.allocate(0));
+        try (Stream<Path> files = Files.walk(ssTablesDir.toPath())) {
+            Path mergedTable = SSTable.writeNewTable(itemIterator, ssTablesDir);
+            if (mergedTable != null) {
+                files.filter(Files::isRegularFile)
+                        .filter(p -> p.getFileName().toString().endsWith(".dat"))
+                        .filter(p -> !p.getFileName().toString()
+                                .equals(mergedTable.getFileName().toString()))
+                        .forEach(p -> {
+                            try {
+                                Files.delete(p);
+                            } catch (IOException e) {
+                                logger.warning("Can't remove old file: " + p.getFileName().toString());
+                            }
+                        });
+                ssTables.clear();
+                initNewSSTable(mergedTable.toFile());
+            }
+        } catch (IOException e) {
+            logger.warning("Compaction failed.");
+        }
     }
 }

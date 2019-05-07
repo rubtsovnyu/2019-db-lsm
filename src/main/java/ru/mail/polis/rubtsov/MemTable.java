@@ -4,15 +4,11 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.logging.Logger;
 
 /**
  * Part of storage located in RAM.
@@ -24,6 +20,7 @@ public class MemTable implements Closeable {
     private final SortedMap<ByteBuffer, Item> data;
     private long sizeInBytes;
     private final File ssTablesDir;
+    private final Logger logger = Logger.getLogger("MyDAO");
 
     /**
      * Creates a new RAM-storage.
@@ -35,7 +32,7 @@ public class MemTable implements Closeable {
     public MemTable(final File ssTablesDir, final long heapSizeInBytes) {
         data = new TreeMap<>();
         this.ssTablesDir = ssTablesDir;
-        flushThresholdInBytes = heapSizeInBytes / 8;
+        flushThresholdInBytes = heapSizeInBytes / 12;
     }
 
     public Iterator<Item> iterator(final ByteBuffer from) {
@@ -53,9 +50,6 @@ public class MemTable implements Closeable {
 
     public void upsert(final ByteBuffer key, final ByteBuffer value) {
         final Item val = Item.of(key, value);
-        if (isFlushNeeded(val)) {
-            flush();
-        }
         calcNewSize(data.put(key, val), val);
     }
 
@@ -67,9 +61,6 @@ public class MemTable implements Closeable {
 
     public void remove(final ByteBuffer key) {
         final Item dead = Item.removed(key);
-        if (isFlushNeeded(dead)) {
-            flush();
-        }
         calcNewSize(data.put(key, dead), dead);
     }
 
@@ -81,43 +72,21 @@ public class MemTable implements Closeable {
         }
     }
 
-    public boolean isFlushNeeded(final Item item) {
+    public boolean isFlushNeeded(final ByteBuffer key, final ByteBuffer value) {
+        final Item item = Item.of(key, value);
         return (sizeInBytes + item.getSizeInBytes()) > flushThresholdInBytes;
     }
 
-    private void flush() {
-        final ByteBuffer offsets = ByteBuffer.allocate((data.size() + 1) * Long.BYTES);
-        long offset = 0;
-        offsets.putLong(offset);
-        final String fileName = TimeUtils.getCurrentTime() + ".tmp";
-        final String fileNameComplete = fileName.substring(0, fileName.length() - 3) + "dat";
-        final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
-        final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
-        try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(path,
-                StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
-            for (final Item v :
-                    data.values()) {
-                final ByteBuffer key = v.getKey();
-                final ByteBuffer value = v.getValue();
-                final ByteBuffer row = ByteBuffer.allocate((int) v.getSizeInBytes());
-                row.putInt(key.remaining()).put(key.duplicate()).putLong(v.getTimeStamp());
-                if (!v.isRemoved()) {
-                    row.putLong(value.remaining()).put(value.duplicate());
-                }
-                offset += v.getSizeInBytes();
-                offsets.putLong(offset);
-                row.flip();
-                fileChannel.write(row);
-            }
-            offsets.position(offsets.limit() - Long.BYTES).putLong((long) data.size());
-            offsets.flip();
-            fileChannel.write(offsets);
-            Files.move(path, pathComplete, StandardCopyOption.ATOMIC_MOVE);
+    public Path flush() {
+        try {
+            Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
+            data.clear();
+            sizeInBytes = 0;
+            return newSSTablePath;
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.warning("Can't flush MemTable to file.");
+            return null;
         }
-        data.clear();
-        sizeInBytes = 0;
     }
 
     @Override

@@ -6,10 +6,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.StandardOpenOption;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
+import java.nio.file.*;
+import java.util.*;
 
 /**
  * Part of storage located at disk.
@@ -102,6 +100,58 @@ public class SSTable {
         return left;
     }
 
+    public static Path writeNewTable(Iterator<Item> items, File ssTablesDir) throws IOException {
+        List<Long> offsets = new ArrayList<>();
+        long offset = 0;
+        offsets.add(offset);
+        final String fileName = UUID.randomUUID().toString() + ".tmp";
+        final String fileNameComplete = fileName.substring(0, fileName.length() - 3) + "dat";
+        final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
+        final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
+        try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(path,
+                StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
+            while (items.hasNext()) {
+                Item item = items.next();
+                final ByteBuffer key = item.getKey();
+                final ByteBuffer value = item.getValue();
+                final ByteBuffer row = ByteBuffer.allocate((int) item.getSizeInBytes());
+                row.putInt(key.remaining()).put(key.duplicate()).putLong(item.getTimeStamp());
+                if (!item.isRemoved()) {
+                    row.putLong(value.remaining()).put(value.duplicate());
+                }
+                offset += item.getSizeInBytes();
+                offsets.add(offset);
+                row.flip();
+                fileChannel.write(row);
+            }
+            int offsetsCount = offsets.size();
+            offsets.set(offsetsCount - 1, (long) offsetsCount - 1);
+            final ByteBuffer offsetsByteBuffer = ByteBuffer.allocate(offsetsCount * Long.BYTES);
+            for (Long i :
+                    offsets) {
+                offsetsByteBuffer.putLong(i);
+            }
+            offsetsByteBuffer.flip();
+            fileChannel.write(offsetsByteBuffer);
+            Files.move(path, pathComplete, StandardCopyOption.ATOMIC_MOVE);
+        }
+        return pathComplete;
+    }
+
+    /**
+     * Tests new SSTable for validity. Throws an exceptions if file is corrupted.
+     *
+     * @throws IllegalArgumentException  error when setting a position that not really exists
+     * @throws IndexOutOfBoundsException database structure corrupted
+     */
+
+    public void testTable() throws IllegalArgumentException, IndexOutOfBoundsException {
+        final Iterator<Item> itemIterator = iterator(ByteBuffer.allocate(0));
+        while (itemIterator.hasNext()) {
+            itemIterator.next();
+        }
+    }
+
     /**
      * Returns an iterator over the elements in this table.
      *
@@ -110,7 +160,7 @@ public class SSTable {
      */
 
     public Iterator<Item> iterator(final ByteBuffer from) {
-        return new Iterator<Item>() {
+        return new Iterator<>() {
             long pos = getPosition(from);
 
             @Override
@@ -128,19 +178,5 @@ public class SSTable {
                 return item;
             }
         };
-    }
-
-    /**
-     * Tests new SSTable for validity. Throws an exceptions if file is corrupted.
-     *
-     * @throws IllegalArgumentException error when setting a position that not really exists
-     * @throws IndexOutOfBoundsException database structure corrupted
-     */
-
-    public void testTable() throws IllegalArgumentException, IndexOutOfBoundsException {
-        final Iterator<Item> itemIterator = iterator(ByteBuffer.allocate(0));
-        while (itemIterator.hasNext()) {
-            itemIterator.next();
-        }
     }
 }
