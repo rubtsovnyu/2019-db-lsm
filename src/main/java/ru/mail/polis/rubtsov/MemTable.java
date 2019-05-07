@@ -32,7 +32,7 @@ public class MemTable implements Closeable {
     public MemTable(final File ssTablesDir, final long heapSizeInBytes) {
         data = new TreeMap<>();
         this.ssTablesDir = ssTablesDir;
-        flushThresholdInBytes = heapSizeInBytes / 12;
+        flushThresholdInBytes = heapSizeInBytes / 16;
     }
 
     public Iterator<Item> iterator(final ByteBuffer from) {
