@@ -49,7 +49,7 @@ public final class SSTable {
                     .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
                     .slice().asReadOnlyBuffer();
             testTable();
-        } catch (Exception e) {
+        } catch (IOException | IllegalArgumentException | IndexOutOfBoundsException e) {
             throw new IllegalArgumentException();
         }
     }
@@ -115,7 +115,8 @@ public final class SSTable {
     }
 
     /**
-     * Writes new SSTable on disk in format:
+     * Writes new SSTable on disk.
+     * Format:
      * [key size][key][timestamp] (if value exists [value size][value]) * n times
      * at the end of file - [array of longs that contains offsets][offsets number]
      *
@@ -129,7 +130,7 @@ public final class SSTable {
         final List<Long> offsets = new ArrayList<>();
         long offset = 0;
         offsets.add(offset);
-        String uuid = UUID.randomUUID().toString();
+        final String uuid = UUID.randomUUID().toString();
         final String fileName = uuid + TEMP_FILE_EXTENSTION;
         final String fileNameComplete = uuid + VALID_FILE_EXTENSTION;
         final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));

@@ -1,7 +1,5 @@
 package ru.mail.polis.rubtsov;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * Simple nano time to avoid collisions.
  */
