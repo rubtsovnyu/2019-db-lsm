@@ -49,7 +49,7 @@ public class MyDAO implements DAO {
                         try {
                             initNewSSTable(p.toFile());
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            logger.error("Init of SSTable failed: {}", p.getFileName(), e);
                         }
                     });
         }
