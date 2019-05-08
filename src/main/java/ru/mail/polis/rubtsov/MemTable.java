@@ -78,8 +78,12 @@ public final class MemTable {
 
     public Path flush(final File ssTablesDir) throws IOException {
         final Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
+        clear();
+        return newSSTablePath;
+    }
+
+    public void clear() {
         data.clear();
         sizeInBytes = 0;
-        return newSSTablePath;
     }
 }
