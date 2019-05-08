@@ -40,7 +40,7 @@ public class MyDAO implements DAO {
      */
 
     public MyDAO(final File dataFolder, final long heapSizeInBytes) throws IOException {
-        memTable = new MemTable(dataFolder, heapSizeInBytes);
+        memTable = new MemTable(heapSizeInBytes);
         ssTablesDir = dataFolder;
         try (Stream<Path> files = Files.list(ssTablesDir.toPath())) {
             files.filter(Files::isRegularFile)
@@ -84,27 +84,27 @@ public class MyDAO implements DAO {
 
     @Override
     public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value) throws IOException {
-        if (memTable.isFlushNeeded(key, value)) {
+        memTable.upsert(key, value);
+        if (memTable.isFlushNeeded()) {
             flushTable();
         }
-        memTable.upsert(key, value);
     }
 
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
-        if (memTable.isFlushNeeded(key, Item.TOMBSTONE)) {
+        memTable.remove(key);
+        if (memTable.isFlushNeeded()) {
             flushTable();
         }
-        memTable.remove(key);
     }
 
     @Override
     public void close() throws IOException {
-        memTable.close();
+        memTable.flush(ssTablesDir);
     }
 
     private void flushTable() throws IOException {
-        final Path flushedFilePath = memTable.flush();
+        final Path flushedFilePath = memTable.flush(ssTablesDir);
         initNewSSTable(flushedFilePath.toFile());
         if (ssTables.size() > COMPACTION_THRESHOLD) {
             compaction();
@@ -113,18 +113,10 @@ public class MyDAO implements DAO {
 
     private void compaction() throws IOException {
         final Iterator<Item> itemIterator = itemIterator(Item.TOMBSTONE);
-        try (Stream<Path> files = Files.list(ssTablesDir.toPath())) {
-            final Path mergedTable = SSTable.writeNewTable(itemIterator, ssTablesDir);
-            if (mergedTable != null) {
-                files.filter(Files::isRegularFile)
-                        .filter(p -> p.getFileName().toString().endsWith(".dat"))
-                        .filter(p -> !p.getFileName().toString()
-                                .equals(mergedTable.getFileName().toString()))
-                        .forEach(this::removeFile);
-                ssTables.clear();
-                initNewSSTable(mergedTable.toFile());
-            }
-        }
+        final Path mergedTable = SSTable.writeNewTable(itemIterator, ssTablesDir);
+        ssTables.forEach(s -> removeFile(s.getTableFile().toPath()));
+        ssTables.clear();
+        initNewSSTable(mergedTable.toFile());
     }
 
     private void removeFile(final Path p) {

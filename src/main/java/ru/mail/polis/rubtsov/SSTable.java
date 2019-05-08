@@ -30,6 +30,7 @@ public final class SSTable {
     private final ByteBuffer records;
     private final LongBuffer offsets;
     private final long recordsAmount;
+    private final File tableFile;
 
     /**
      * Creates a new representation of data file.
@@ -39,6 +40,7 @@ public final class SSTable {
      */
 
     public SSTable(final File tableFile) throws IOException {
+        this.tableFile = tableFile;
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
                 tableFile.toPath(), StandardOpenOption.READ)) {
             Preconditions.checkArgument(fileChannel.size() >= Long.BYTES);
@@ -115,6 +117,15 @@ public final class SSTable {
             }
         }
         return left;
+    }
+
+    /**
+     * Returns file this SSTable associated with.
+     * @return file
+     */
+
+    public File getTableFile() {
+        return tableFile;
     }
 
     /**

@@ -13,23 +13,20 @@ import java.util.TreeMap;
  * Part of storage located in RAM.
  */
 
-public final class MemTable implements Closeable {
+public final class MemTable {
     private final long flushThresholdInBytes;
 
     private final SortedMap<ByteBuffer, Item> data;
     private long sizeInBytes;
-    private final File ssTablesDir;
 
     /**
      * Creates a new RAM-storage.
      *
-     * @param ssTablesDir folder which MemTable will flush the data
      * @param heapSizeInBytes given JVM max heap size
      */
 
-    public MemTable(final File ssTablesDir, final long heapSizeInBytes) {
+    public MemTable(final long heapSizeInBytes) {
         data = new TreeMap<>();
-        this.ssTablesDir = ssTablesDir;
         flushThresholdInBytes = heapSizeInBytes / 16;
     }
 
@@ -70,9 +67,8 @@ public final class MemTable implements Closeable {
         }
     }
 
-    public boolean isFlushNeeded(final ByteBuffer key, final ByteBuffer value) {
-        final Item item = Item.of(key, value);
-        return (sizeInBytes + item.getSizeInBytes()) > flushThresholdInBytes;
+    public boolean isFlushNeeded() {
+        return (sizeInBytes > flushThresholdInBytes);
     }
 
     /**
@@ -81,15 +77,10 @@ public final class MemTable implements Closeable {
      * @return path of new SSTable or null if something went wrong during flush
      */
 
-    public Path flush() throws IOException {
+    public Path flush(final File ssTablesDir) throws IOException {
         final Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
         data.clear();
         sizeInBytes = 0;
         return newSSTablePath;
-    }
-
-    @Override
-    public void close() throws IOException {
-        flush();
     }
 }
