@@ -60,7 +60,7 @@ public class MyDAO implements DAO {
             final SSTable ssTable = new SSTable(ssTableFile);
             ssTables.add(ssTable);
         } catch (IllegalArgumentException e) {
-            logger.error("File corrupted: \"" + ssTableFile.getName() + "\", skipped.");
+            logger.error("File corrupted: {}, skipped.", ssTableFile.getName());
         }
     }
 
@@ -123,7 +123,7 @@ public class MyDAO implements DAO {
         try {
             Files.delete(p);
         } catch (IOException e) {
-            logger.error("Can't remove old file: " + p.getFileName().toString());
+            logger.error("Can't remove old file: {}", p.getFileName(), e);
         }
     }
 }
