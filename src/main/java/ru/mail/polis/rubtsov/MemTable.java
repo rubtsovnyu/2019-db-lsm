@@ -1,6 +1,5 @@
 package ru.mail.polis.rubtsov;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -68,7 +67,7 @@ public final class MemTable {
     }
 
     public boolean isFlushNeeded() {
-        return (sizeInBytes > flushThresholdInBytes);
+        return sizeInBytes > flushThresholdInBytes;
     }
 
     /**
