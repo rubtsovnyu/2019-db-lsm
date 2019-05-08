@@ -1,5 +1,7 @@
 package ru.mail.polis.rubtsov;
 
+import com.google.common.base.Preconditions;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -22,12 +24,12 @@ import java.util.NoSuchElementException;
  */
 
 public final class SSTable {
+    private static final String TEMP_FILE_EXTENSTION = ".tmp";
+    static final String VALID_FILE_EXTENSTION = ".dat";
+
     private final ByteBuffer records;
     private final LongBuffer offsets;
     private final long recordsAmount;
-
-    private static final String TEMP_FILE_EXTENSTION = ".tmp";
-    public static final String VALID_FILE_EXTENSTION = ".dat";
 
     /**
      * Creates a new representation of data file.
@@ -36,21 +38,22 @@ public final class SSTable {
      * @throws IllegalArgumentException if file corrupted
      */
 
-    public SSTable(final File tableFile) {
+    public SSTable(final File tableFile) throws IOException {
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
                 tableFile.toPath(), StandardOpenOption.READ)) {
+            Preconditions.checkArgument(fileChannel.size() >= Long.BYTES);
             final ByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY,
                     0, tableFile.length()).order(ByteOrder.BIG_ENDIAN);
+            Preconditions.checkArgument(mappedByteBuffer.limit() < Integer.MAX_VALUE);
             recordsAmount = mappedByteBuffer.getLong(mappedByteBuffer.limit() - Long.BYTES);
+            Preconditions.checkArgument(mappedByteBuffer.limit() > recordsAmount * 21);
             offsets = mappedByteBuffer.duplicate()
                     .position((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
                     .limit(mappedByteBuffer.limit() - Long.BYTES).slice().asLongBuffer();
+            Preconditions.checkArgument(offsets.limit() == recordsAmount);
             records = mappedByteBuffer.duplicate()
                     .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
                     .slice().asReadOnlyBuffer();
-            testTable();
-        } catch (IOException | IndexOutOfBoundsException e) {
-            throw new IllegalArgumentException(e);
         }
     }
 
@@ -164,18 +167,7 @@ public final class SSTable {
         }
         return pathComplete;
     }
-
-    /**
-     * Tests new SSTable for validity. Throws an exceptions if file is corrupted.
-     */
-
-    private void testTable() {
-        final Iterator<Item> itemIterator = iterator(Item.TOMBSTONE);
-        while (itemIterator.hasNext()) {
-            itemIterator.next();
-        }
-    }
-
+    
     /**
      * Returns an iterator over the elements in this table.
      *

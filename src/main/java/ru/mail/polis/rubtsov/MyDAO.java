@@ -45,11 +45,17 @@ public class MyDAO implements DAO {
         try (Stream<Path> files = Files.list(ssTablesDir.toPath())) {
             files.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(SSTable.VALID_FILE_EXTENSTION))
-                    .forEach(p -> initNewSSTable(p.toFile()));
+                    .forEach(p -> {
+                        try {
+                            initNewSSTable(p.toFile());
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
 
-    private void initNewSSTable(final File ssTableFile) {
+    private void initNewSSTable(final File ssTableFile) throws IOException {
         try {
             final SSTable ssTable = new SSTable(ssTableFile);
             ssTables.add(ssTable);
