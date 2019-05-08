@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
@@ -45,13 +46,7 @@ public class MyDAO implements DAO {
         try (Stream<Path> files = Files.list(ssTablesDir.toPath())) {
             files.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(SSTable.VALID_FILE_EXTENSTION))
-                    .forEach(p -> {
-                        try {
-                            initNewSSTable(p.toFile());
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+                    .forEach(throwingConsumerWrapper(p -> initNewSSTable(p.toFile())));
         }
     }
 
@@ -133,5 +128,21 @@ public class MyDAO implements DAO {
         } catch (IOException e) {
             logger.error("Can't remove old file: " + p.getFileName().toString());
         }
+    }
+
+    @FunctionalInterface
+    public interface ThrowingConsumer<T, E extends Exception> {
+        void accept(T t) throws E;
+    }
+
+    static <T> Consumer<T> throwingConsumerWrapper(
+            ThrowingConsumer<T, Exception> throwingConsumer) {
+        return i -> {
+            try {
+                throwingConsumer.accept(i);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        };
     }
 }

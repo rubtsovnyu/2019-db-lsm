@@ -167,7 +167,7 @@ public final class SSTable {
         }
         return pathComplete;
     }
-    
+
     /**
      * Returns an iterator over the elements in this table.
      *
