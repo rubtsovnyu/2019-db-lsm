@@ -53,9 +53,6 @@ public class MyDAO implements DAO {
                         }
                     });
         }
-        if (ssTables.size() > COMPACTION_THRESHOLD) {
-            compact();
-        }
     }
 
     private void initNewSSTable(final File ssTableFile) throws IOException {
