@@ -54,7 +54,7 @@ public class MyDAO implements DAO {
                     });
         }
         if (ssTables.size() > COMPACTION_THRESHOLD) {
-            compaction();
+            compact();
         }
     }
 
@@ -108,14 +108,15 @@ public class MyDAO implements DAO {
 
     private void flushTable() throws IOException {
         if (ssTables.size() + 1 > COMPACTION_THRESHOLD) {
-            compaction();
+            compact();
         } else {
             final Path flushedFilePath = memTable.flush(ssTablesDir);
             initNewSSTable(flushedFilePath.toFile());
         }
     }
 
-    private void compaction() throws IOException {
+    @Override
+    public void compact() throws IOException {
         final Iterator<Item> itemIterator = itemIterator(Item.TOMBSTONE);
         final Path mergedTable = SSTable.writeNewTable(itemIterator, ssTablesDir);
         ssTables.forEach(s -> removeFile(s.getTableFile().toPath()));
