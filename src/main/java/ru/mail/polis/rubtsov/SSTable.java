@@ -73,8 +73,7 @@ public final class SSTable {
     private ByteBuffer getKey(final ByteBuffer record) {
         final ByteBuffer rec = record.duplicate();
         final int keySize = rec.getInt();
-        rec.limit(Integer.BYTES + keySize).slice().asReadOnlyBuffer();
-        return rec;
+        return rec.limit(Integer.BYTES + keySize).slice().asReadOnlyBuffer();
     }
 
     private long getTimeStamp(final ByteBuffer record) {

@@ -86,4 +86,8 @@ public final class MemTable {
         data.clear();
         sizeInBytes = 0;
     }
+
+    public boolean isEmpty() {
+        return data.isEmpty();
+    }
 }

@@ -100,7 +100,9 @@ public class MyDAO implements DAO {
 
     @Override
     public void close() throws IOException {
-        memTable.flush(ssTablesDir);
+        if (!memTable.isEmpty()) {
+            memTable.flush(ssTablesDir);
+        }
     }
 
     private void flushTable() throws IOException {
