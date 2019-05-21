@@ -106,7 +106,7 @@ public class MyDAO implements DAO {
     }
 
     private void flushTable() throws IOException {
-        if (ssTables.size() + 1 > COMPACTION_THRESHOLD) {
+        if (ssTables.size() >= COMPACTION_THRESHOLD) {
             compact();
         } else {
             final Path flushedFilePath = memTable.flush(ssTablesDir);
