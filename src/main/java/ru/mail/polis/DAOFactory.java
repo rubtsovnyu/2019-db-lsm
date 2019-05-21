@@ -17,7 +17,7 @@
 package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.mydao.DAOImpl;
+import ru.mail.polis.rubtsov.MyDAO;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,6 +54,6 @@ public final class DAOFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new DAOImpl();
+        return new MyDAO(data, MAX_HEAP);
     }
 }
