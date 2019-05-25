@@ -38,16 +38,8 @@ class TimeToLiveTest extends TestBase {
     @Test
     void liveFastDieYoung(@TempDir File data) throws IOException, InterruptedException {
         try (DAO dao = DAOFactory.create(data)) {
-            final Iterator<ByteBuffer> almostDeadKeys =
-                    Stream.generate(TestBase::randomKey)
-                            .limit(ITEMS_COUNT)
-                            .iterator();
-            final Iterator<ByteBuffer> almostDeadValues =
-                    Stream.generate(TimeToLiveTest::randomValue)
-                            .limit(ITEMS_COUNT)
-                            .iterator();
-            while (almostDeadKeys.hasNext()) {
-                dao.upsert(almostDeadKeys.next(), almostDeadValues.next(), 1);
+            for (int i = 0; i < ITEMS_COUNT; i++) {
+                dao.upsert(TestBase.randomKey(), randomValue(), 1);
             }
             Thread.sleep(1);
             final Iterator<Record> empty = dao.iterator(ByteBuffer.allocate(0));
@@ -62,16 +54,8 @@ class TimeToLiveTest extends TestBase {
     @Test
     void oneSecondLife(@TempDir File data) throws IOException, InterruptedException {
         try (DAO dao = DAOFactory.create(data)) {
-            final Iterator<ByteBuffer> almostDeadKeys =
-                    Stream.generate(TestBase::randomKey)
-                            .limit(ITEMS_COUNT)
-                            .iterator();
-            final Iterator<ByteBuffer> almostDeadValues =
-                    Stream.generate(TimeToLiveTest::randomValue)
-                            .limit(ITEMS_COUNT)
-                            .iterator();
-            while (almostDeadKeys.hasNext()) {
-                dao.upsert(almostDeadKeys.next(), almostDeadValues.next(), 1000);
+            for (int i = 0; i < ITEMS_COUNT; i++) {
+                dao.upsert(TestBase.randomKey(), randomValue(), 1000);
             }
             Thread.sleep(1000);
             final Iterator<Record> empty = dao.iterator(ByteBuffer.allocate(0));
@@ -87,16 +71,8 @@ class TimeToLiveTest extends TestBase {
     @Test
     void deadOnlyAfterTTL(@TempDir File data) throws IOException, InterruptedException {
         try (DAO dao = DAOFactory.create(data)) {
-            final Iterator<ByteBuffer> almostDeadKeys =
-                    Stream.generate(TestBase::randomKey)
-                            .limit(ITEMS_COUNT)
-                            .iterator();
-            final Iterator<ByteBuffer> almostDeadValues =
-                    Stream.generate(TimeToLiveTest::randomValue)
-                            .limit(ITEMS_COUNT)
-                            .iterator();
-            while (almostDeadKeys.hasNext()) {
-                dao.upsert(almostDeadKeys.next(), almostDeadValues.next(), LONG_LIFE);
+            for (int i = 0; i < ITEMS_COUNT; i++) {
+                dao.upsert(TestBase.randomKey(), randomValue(), LONG_LIFE);
             }
             final long finishTime = System.currentTimeMillis();
             final Iterator<Record> nonEmpty = dao.iterator(ByteBuffer.allocate(0));

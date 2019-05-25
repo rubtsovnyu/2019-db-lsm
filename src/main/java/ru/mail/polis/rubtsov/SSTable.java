@@ -83,7 +83,7 @@ final class SSTable {
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(path,
                 StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
             while (items.hasNext()) {
-                Item item = items.next();
+                final Item item = items.next();
                 final ByteBuffer key = item.getKey();
                 final ByteBuffer value = item.getValue();
                 final int itemSize = (int) item.getSizeInBytes();
