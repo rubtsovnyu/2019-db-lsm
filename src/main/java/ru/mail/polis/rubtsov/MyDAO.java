@@ -91,7 +91,8 @@ public class MyDAO implements DAO {
     }
 
     @Override
-    public void upsert(@NotNull final ByteBuffer key, @NotNull final ByteBuffer value, final long timeToLive) throws IOException {
+    public void upsert(@NotNull final ByteBuffer key,
+                       @NotNull final ByteBuffer value, final long timeToLive) throws IOException {
         memTable.upsert(key, value, timeToLive);
         if (memTable.isFlushNeeded()) {
             flushTable();

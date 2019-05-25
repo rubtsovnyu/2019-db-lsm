@@ -87,7 +87,10 @@ public final class Client {
                 final String[] tokens = line.split(" ");
                 final String cmd = tokens[0];
                 final ByteBuffer key = ByteBuffer.wrap(tokens[1].getBytes(StandardCharsets.UTF_8));
-                final long ttl = tokens.length > 3 ? ttlFrom(tokens[3]) : -1;
+                long ttl = -1;
+                if (tokens.length > 3) {
+                    ttl = ttlFrom(tokens[3]);
+                }
 
                 switch (cmd) {
                     case "get":
