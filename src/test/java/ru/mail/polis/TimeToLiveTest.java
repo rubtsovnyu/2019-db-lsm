@@ -31,8 +31,10 @@ class TimeToLiveTest extends TestBase {
         return TestBase.randomBuffer(VALUE_LENGTH);
     }
 
-    //Creates values with very short life-time
-    // and immediately checks that they are dead.
+    /**
+     * Creates values with very short life-time
+     * and immediately checks that they are dead.
+     */
     @Test
     void liveFastDieYoung(@TempDir File data) throws IOException, InterruptedException {
         try (DAO dao = DAOFactory.create(data)) {
@@ -53,9 +55,10 @@ class TimeToLiveTest extends TestBase {
         }
     }
 
-    //Creates values with 1 second life time
-    // and after 1 second checks that they are dead.
-
+    /**
+     * Creates values with 1 second life time
+     * and after 1 second checks that they are dead.
+     */
     @Test
     void oneSecondLife(@TempDir File data) throws IOException, InterruptedException {
         try (DAO dao = DAOFactory.create(data)) {
@@ -76,10 +79,11 @@ class TimeToLiveTest extends TestBase {
         }
     }
 
-    //Creates values with long life time, immediately checks
-    // that they are not dead then waits for the expected
-    // lifetime and checks that everyone is dead.
-
+    /**
+     * Creates values with long life time, immediately checks
+     * that they are not dead then waits for the expected
+     * lifetime and checks that everyone is dead.
+     */
     @Test
     void deadOnlyAfterTTL(@TempDir File data) throws IOException, InterruptedException {
         try (DAO dao = DAOFactory.create(data)) {

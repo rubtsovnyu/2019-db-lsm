@@ -22,23 +22,20 @@ import java.util.stream.Stream;
 /**
  * Simple LSM based {@link DAO} implementation.
  */
-
 public class MyDAO implements DAO {
     private static final int COMPACTION_THRESHOLD = 8;
 
     private final MemTable memTable;
     private final List<SSTable> ssTables = new ArrayList<>();
     private final File ssTablesDir;
-    private final Logger logger = LoggerFactory.getLogger(MyDAO.class);
-
+    private static final Logger logger = LoggerFactory.getLogger(MyDAO.class);
 
     /**
-     * Constructs a new, empty storage.
+     * Constructs a new storage.
      *
      * @param dataFolder the folder which SSTables will be contained.
      * @param heapSizeInBytes JVM max heap size
      */
-
     public MyDAO(final File dataFolder, final long heapSizeInBytes) throws IOException {
         memTable = new MemTable(heapSizeInBytes);
         ssTablesDir = dataFolder;

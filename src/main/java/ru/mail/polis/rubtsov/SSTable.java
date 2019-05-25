@@ -22,7 +22,6 @@ import java.util.NoSuchElementException;
 /**
  * Part of storage located at disk.
  */
-
 final class SSTable {
     private static final String TEMP_FILE_EXTENSTION = ".tmp";
     static final String VALID_FILE_EXTENSTION = ".dat";
@@ -38,7 +37,6 @@ final class SSTable {
      * @param tableFile file with data
      * @throws IllegalArgumentException if file corrupted
      */
-
     SSTable(final File tableFile) throws IOException {
         this.tableFile = tableFile;
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
@@ -51,11 +49,14 @@ final class SSTable {
             Preconditions.checkArgument(mappedByteBuffer.limit() > recordsAmount * 21);
             offsets = mappedByteBuffer.duplicate()
                     .position((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
-                    .limit(mappedByteBuffer.limit() - Long.BYTES).slice().asLongBuffer();
+                    .limit(mappedByteBuffer.limit() - Long.BYTES)
+                    .slice()
+                    .asLongBuffer();
             Preconditions.checkArgument(offsets.limit() == recordsAmount);
             records = mappedByteBuffer.duplicate()
                     .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
-                    .slice().asReadOnlyBuffer();
+                    .slice()
+                    .asReadOnlyBuffer();
         }
     }
 
@@ -70,7 +71,6 @@ final class SSTable {
      * @return path of new file
      * @throws IOException if something went wrong during writing
      */
-
     static Path writeNewTable(final Iterator<Item> items, final File ssTablesDir) throws IOException {
         final List<Long> offsets = new ArrayList<>();
         long offset = 0;
@@ -80,15 +80,19 @@ final class SSTable {
         final String fileNameComplete = uuid + VALID_FILE_EXTENSTION;
         final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
         final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
-        Item item;
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(path,
                 StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
             while (items.hasNext()) {
-                item = items.next();
+                Item item = items.next();
                 final ByteBuffer key = item.getKey();
                 final ByteBuffer value = item.getValue();
                 final int itemSize = (int) item.getSizeInBytes();
                 final ByteBuffer row = ByteBuffer.allocate(itemSize);
+                // checks if item size equals to removed item size (no bytes for value)
+                // made because we must check is item expired only one time (in Item.getSizeInBytes)
+                // so, we will not face to a problem where, during one check
+                // the element was alive, and during another it was already deleted.
+                // and it works normally :)
                 final boolean isRemoved = itemSize == Integer.BYTES + key.remaining() + Long.BYTES * 2;
                 row.putInt(key.remaining()).put(key.duplicate());
                 if (isRemoved) {
@@ -129,14 +133,17 @@ final class SSTable {
 
     private ByteBuffer getRecord(final long index) {
         final long offset = offsets.get((int) index);
-        long recordLimit;
+        final long recordLimit;
         if (index == recordsAmount - 1) {
             recordLimit = records.limit();
         } else {
             recordLimit = offsets.get((int) index + 1);
         }
-        return records.duplicate().position((int) offset)
-                .limit((int) recordLimit).slice().asReadOnlyBuffer();
+        return records.duplicate()
+                .position((int) offset)
+                .limit((int) recordLimit)
+                .slice()
+                .asReadOnlyBuffer();
     }
 
     private long getTimeToLive(final ByteBuffer record) {
@@ -148,7 +155,9 @@ final class SSTable {
         final ByteBuffer rec = record.duplicate();
         final int keySize = rec.getInt();
         return rec.position(Integer.BYTES + keySize + Long.BYTES * 2)
-                .limit(rec.limit() - Long.BYTES).slice().asReadOnlyBuffer();
+                .limit(rec.limit() - Long.BYTES)
+                .slice()
+                .asReadOnlyBuffer();
     }
 
     private long getPosition(final ByteBuffer key) {
@@ -173,7 +182,6 @@ final class SSTable {
      *
      * @return file
      */
-
     File getTableFile() {
         return tableFile;
     }
@@ -198,7 +206,6 @@ final class SSTable {
      * @param from the key from which to start the iteration.
      * @return iterator
      */
-
     Iterator<Item> iterator(final ByteBuffer from) {
         return new Iterator<>() {
             long pos = getPosition(from);

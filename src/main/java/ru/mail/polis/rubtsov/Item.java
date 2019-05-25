@@ -11,6 +11,7 @@ public final class Item implements Comparable<Item> {
     static final Comparator<Item> COMPARATOR = comparing(Item::getKey)
             .thenComparing(comparing(Item::getTimeStampAbs).reversed());
     static final ByteBuffer TOMBSTONE = ByteBuffer.allocate(0);
+    static final long NO_TTL = -1;
 
     private final ByteBuffer key;
     private final ByteBuffer value;
@@ -21,7 +22,7 @@ public final class Item implements Comparable<Item> {
         this.key = key;
         this.value = value;
         this.timeStamp = timeStamp;
-        timeToLive = -1;
+        this.timeToLive = NO_TTL;
     }
 
     private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final long timeToLive) {
@@ -68,7 +69,7 @@ public final class Item implements Comparable<Item> {
     }
 
     private boolean hasTTL() {
-        return timeToLive > -1;
+        return timeToLive > NO_TTL;
     }
 
     private boolean isExpired() {

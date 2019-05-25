@@ -41,10 +41,8 @@ final class MemTable {
      * @param key key with which the specified value is to be associated
      * @param value value to be associated with the specified key
      */
-
     void upsert(final ByteBuffer key, final ByteBuffer value) {
-        final Item val = Item.of(key, value);
-        calcNewSize(data.put(key, val), val);
+        this.upsert(key, value, Item.NO_TTL);
     }
 
     void upsert(final ByteBuffer key, final ByteBuffer value, final long timeToLive) {
@@ -57,7 +55,6 @@ final class MemTable {
      *
      * @param key that should be removed
      */
-
     void remove(final ByteBuffer key) {
         final Item dead = Item.removed(key);
         calcNewSize(data.put(key, dead), dead);
@@ -80,7 +77,6 @@ final class MemTable {
      *
      * @return path of new SSTable or null if something went wrong during flush
      */
-
     Path flush(final File ssTablesDir) throws IOException {
         final Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
         clear();
