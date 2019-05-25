@@ -47,7 +47,7 @@ final class MemTable {
         calcNewSize(data.put(key, val), val);
     }
 
-    void upsert(final ByteBuffer key, final ByteBuffer value, long timeToLive) {
+    void upsert(final ByteBuffer key, final ByteBuffer value, final long timeToLive) {
         final Item val = Item.ofTTL(key, value, timeToLive);
         calcNewSize(data.put(key, val), val);
     }

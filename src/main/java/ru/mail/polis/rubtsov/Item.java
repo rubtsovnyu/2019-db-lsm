@@ -64,7 +64,7 @@ public final class Item implements Comparable<Item> {
     }
 
     boolean isRemoved() {
-        return timeStamp < 0 || (hasTTL() & isExpired());
+        return timeStamp < 0 || hasTTL() && isExpired();
     }
 
     private boolean hasTTL() {

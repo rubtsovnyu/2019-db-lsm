@@ -46,15 +46,15 @@ public final class Client {
         return ByteBuffer.wrap(value.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static long ttlFrom(@NotNull final String ttl) {
-        return Long.parseLong(ttl);
-    }
-
     @NotNull
     private static String from(@NotNull final ByteBuffer value) {
         final byte[] bytes = new byte[value.remaining()];
         value.get(bytes);
         return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private static long ttlFrom(@NotNull final String ttl) {
+        return Long.parseLong(ttl);
     }
 
     public static void main(final String[] args) throws IOException {
@@ -101,11 +101,7 @@ public final class Client {
                         break;
 
                     case "put":
-                        if (tokens.length > 3) {
-                            dao.upsert(key, from(tokens[2]), ttl);
-                        } else {
-                            dao.upsert(key, from(tokens[2]));
-                        }
+                        dao.upsert(key, from(tokens[2]), ttl);
                         break;
 
                     case "remove":

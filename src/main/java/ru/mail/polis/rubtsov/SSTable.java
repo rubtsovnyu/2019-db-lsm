@@ -8,8 +8,16 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.UUID;
+import java.util.NoSuchElementException;
 
 /**
  * Part of storage located at disk.
@@ -81,12 +89,12 @@ final class SSTable {
                 final ByteBuffer value = item.getValue();
                 final int itemSize = (int) item.getSizeInBytes();
                 final ByteBuffer row = ByteBuffer.allocate(itemSize);
-                final boolean isRemoved = itemSize == (Integer.BYTES + key.remaining() + Long.BYTES * 2);
+                final boolean isRemoved = itemSize == Integer.BYTES + key.remaining() + Long.BYTES * 2;
                 row.putInt(key.remaining()).put(key.duplicate());
-                if (!isRemoved) {
-                    row.putLong(item.getTimeStamp()).putLong(value.remaining()).put(value.duplicate());
-                } else {
+                if (isRemoved) {
                     row.putLong(-item.getTimeStampAbs());
+                } else {
+                    row.putLong(item.getTimeStamp()).putLong(value.remaining()).put(value.duplicate());
                 }
                 row.putLong(item.getTimeToLive());
                 offset += itemSize;
