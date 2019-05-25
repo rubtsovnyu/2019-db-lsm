@@ -15,22 +15,35 @@ public final class Item implements Comparable<Item> {
     private final ByteBuffer key;
     private final ByteBuffer value;
     private final long timeStamp;
+    private final long timeToLive;
 
     private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp) {
         this.key = key;
         this.value = value;
         this.timeStamp = timeStamp;
+        timeToLive = -1;
+    }
+
+    private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final long timeToLive) {
+        this.key = key;
+        this.value = value;
+        this.timeStamp = timeStamp;
+        this.timeToLive = timeToLive;
     }
 
     public static Item of(final ByteBuffer key, final ByteBuffer value) {
         return new Item(key.duplicate(), value.duplicate(), TimeUtils.getCurrentTime());
     }
 
-    public static Item of(final ByteBuffer key, final ByteBuffer value, final long timeStamp) {
-        return new Item(key.duplicate(), value.duplicate(), timeStamp);
+    static Item ofTTL(final ByteBuffer key, final ByteBuffer value, final long timeToLive) {
+        return new Item(key.duplicate(), value.duplicate(), TimeUtils.getCurrentTime(), timeToLive);
     }
 
-    public static Item removed(final ByteBuffer key) {
+    static Item ofTTL(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final long timeToLive) {
+        return new Item(key.duplicate(), value.duplicate(), timeStamp, timeToLive);
+    }
+
+    static Item removed(final ByteBuffer key) {
         return new Item(key.duplicate(), TOMBSTONE, -TimeUtils.getCurrentTime());
     }
 
@@ -42,12 +55,24 @@ public final class Item implements Comparable<Item> {
         return value;
     }
 
-    public long getTimeStamp() {
+    long getTimeStamp() {
         return timeStamp;
     }
 
-    public boolean isRemoved() {
-        return getTimeStamp() < 0;
+    long getTimeToLive() {
+        return timeToLive;
+    }
+
+    boolean isRemoved() {
+        return timeStamp < 0 || (hasTTL() & isExpired());
+    }
+
+    private boolean hasTTL() {
+        return timeToLive > -1;
+    }
+
+    private boolean isExpired() {
+        return System.currentTimeMillis() > (timeStamp / 1_000_000 + timeToLive);
     }
 
     @Override
@@ -61,18 +86,20 @@ public final class Item implements Comparable<Item> {
      * @return size of item in bytes
      */
 
-    public long getSizeInBytes() {
+    long getSizeInBytes() {
         final int keyRem = key.remaining();
-        final int valRem = value.remaining();
-        final int valLen = isRemoved() ? 0 : Long.BYTES;
+        final boolean isRemoved = isRemoved();
+        final int valRem = isRemoved ? 0 : value.remaining();
+        final int valLen = isRemoved ? 0 : Long.BYTES;
         return Integer.BYTES
                 + keyRem
                 + Long.BYTES
                 + valRem
-                + valLen;
+                + valLen
+                + Long.BYTES;
     }
 
-    public long getTimeStampAbs() {
+    long getTimeStampAbs() {
         return Math.abs(timeStamp);
     }
 }

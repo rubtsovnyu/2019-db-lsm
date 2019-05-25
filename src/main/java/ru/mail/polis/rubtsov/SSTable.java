@@ -8,22 +8,14 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.UUID;
-import java.util.NoSuchElementException;
+import java.nio.file.*;
+import java.util.*;
 
 /**
  * Part of storage located at disk.
  */
 
-public final class SSTable {
+final class SSTable {
     private static final String TEMP_FILE_EXTENSTION = ".tmp";
     static final String VALID_FILE_EXTENSTION = ".dat";
 
@@ -39,7 +31,7 @@ public final class SSTable {
      * @throws IllegalArgumentException if file corrupted
      */
 
-    public SSTable(final File tableFile) throws IOException {
+    SSTable(final File tableFile) throws IOException {
         this.tableFile = tableFile;
         try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(
                 tableFile.toPath(), StandardOpenOption.READ)) {
@@ -59,15 +51,60 @@ public final class SSTable {
         }
     }
 
-    private ByteBuffer getRecord(final long index) {
-        final long offset = offsets.get((int) index);
-        long recordLimit;
-        if (index == recordsAmount - 1) {
-            recordLimit = records.limit();
-        } else {
-            recordLimit = offsets.get((int) index + 1);
+    /**
+     * Writes new SSTable on disk.
+     * Format:
+     * { [key size][key][timestamp] (if value exists [value size][value]) [time to live] } * records amount
+     * at the end of file - [array of longs that contains offsets][offsets number]
+     *
+     * @param items iterator of data that should be written
+     * @param ssTablesDir data files directory
+     * @return path of new file
+     * @throws IOException if something went wrong during writing
+     */
+
+    static Path writeNewTable(final Iterator<Item> items, final File ssTablesDir) throws IOException {
+        final List<Long> offsets = new ArrayList<>();
+        long offset = 0;
+        offsets.add(offset);
+        final String uuid = UUID.randomUUID().toString();
+        final String fileName = uuid + TEMP_FILE_EXTENSTION;
+        final String fileNameComplete = uuid + VALID_FILE_EXTENSTION;
+        final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
+        final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
+        Item item;
+        try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(path,
+                StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
+            while (items.hasNext()) {
+                item = items.next();
+                final ByteBuffer key = item.getKey();
+                final ByteBuffer value = item.getValue();
+                final int itemSize = (int) item.getSizeInBytes();
+                final ByteBuffer row = ByteBuffer.allocate(itemSize);
+                final boolean isRemoved = itemSize == (Integer.BYTES + key.remaining() + Long.BYTES * 2);
+                row.putInt(key.remaining()).put(key.duplicate());
+                if (!isRemoved) {
+                    row.putLong(item.getTimeStamp()).putLong(value.remaining()).put(value.duplicate());
+                } else {
+                    row.putLong(-item.getTimeStampAbs());
+                }
+                row.putLong(item.getTimeToLive());
+                offset += itemSize;
+                offsets.add(offset);
+                row.flip();
+                fileChannel.write(row);
+            }
+            final int offsetsCount = offsets.size();
+            offsets.set(offsetsCount - 1, (long) offsetsCount - 1);
+            final ByteBuffer offsetsByteBuffer = ByteBuffer.allocate(offsetsCount * Long.BYTES);
+            for (final Long i : offsets) {
+                offsetsByteBuffer.putLong(i);
+            }
+            offsetsByteBuffer.flip();
+            fileChannel.write(offsetsByteBuffer);
+            Files.move(path, pathComplete, StandardCopyOption.ATOMIC_MOVE);
         }
-        return records.duplicate().position((int) offset).limit((int) recordLimit).slice().asReadOnlyBuffer();
+        return pathComplete;
     }
 
     private ByteBuffer getKey(final ByteBuffer record) {
@@ -82,23 +119,28 @@ public final class SSTable {
         return rec.getLong();
     }
 
+    private ByteBuffer getRecord(final long index) {
+        final long offset = offsets.get((int) index);
+        long recordLimit;
+        if (index == recordsAmount - 1) {
+            recordLimit = records.limit();
+        } else {
+            recordLimit = offsets.get((int) index + 1);
+        }
+        return records.duplicate().position((int) offset)
+                .limit((int) recordLimit).slice().asReadOnlyBuffer();
+    }
+
+    private long getTimeToLive(final ByteBuffer record) {
+        final ByteBuffer rec = record.duplicate();
+        return rec.position(rec.limit() - Long.BYTES).getLong();
+    }
+
     private ByteBuffer getValue(final ByteBuffer record) {
         final ByteBuffer rec = record.duplicate();
         final int keySize = rec.getInt();
-        return rec.position(Integer.BYTES + keySize + Long.BYTES * 2).slice().asReadOnlyBuffer();
-    }
-
-    private Item getItem(final long pos) {
-        final ByteBuffer rec = getRecord(pos);
-        final ByteBuffer key = getKey(rec);
-        final long timeStamp = getTimeStamp(rec);
-        ByteBuffer value;
-        if (timeStamp < 0) {
-            value = Item.TOMBSTONE;
-        } else {
-            value = getValue(rec);
-        }
-        return Item.of(key, value, timeStamp);
+        return rec.position(Integer.BYTES + keySize + Long.BYTES * 2)
+                .limit(rec.limit() - Long.BYTES).slice().asReadOnlyBuffer();
     }
 
     private long getPosition(final ByteBuffer key) {
@@ -120,62 +162,26 @@ public final class SSTable {
 
     /**
      * Returns file this SSTable associated with.
+     *
      * @return file
      */
 
-    public File getTableFile() {
+    File getTableFile() {
         return tableFile;
     }
 
-    /**
-     * Writes new SSTable on disk.
-     * Format:
-     * [key size][key][timestamp] (if value exists [value size][value]) * n times
-     * at the end of file - [array of longs that contains offsets][offsets number]
-     *
-     * @param items iterator of data that should be written
-     * @param ssTablesDir data files directory
-     * @return path of new file
-     * @throws IOException if something went wrong during writing
-     */
-
-    public static Path writeNewTable(final Iterator<Item> items, final File ssTablesDir) throws IOException {
-        final List<Long> offsets = new ArrayList<>();
-        long offset = 0;
-        offsets.add(offset);
-        final String uuid = UUID.randomUUID().toString();
-        final String fileName = uuid + TEMP_FILE_EXTENSTION;
-        final String fileNameComplete = uuid + VALID_FILE_EXTENSTION;
-        final Path path = ssTablesDir.toPath().resolve(Paths.get(fileName));
-        final Path pathComplete = ssTablesDir.toPath().resolve(Paths.get(fileNameComplete));
-        Item item;
-        try (FileChannel fileChannel = (FileChannel) Files.newByteChannel(path,
-                StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
-            while (items.hasNext()) {
-                item = items.next();
-                final ByteBuffer key = item.getKey();
-                final ByteBuffer value = item.getValue();
-                final ByteBuffer row = ByteBuffer.allocate((int) item.getSizeInBytes());
-                row.putInt(key.remaining()).put(key.duplicate()).putLong(item.getTimeStamp());
-                if (!item.isRemoved()) {
-                    row.putLong(value.remaining()).put(value.duplicate());
-                }
-                offset += item.getSizeInBytes();
-                offsets.add(offset);
-                row.flip();
-                fileChannel.write(row);
-            }
-            final int offsetsCount = offsets.size();
-            offsets.set(offsetsCount - 1, (long) offsetsCount - 1);
-            final ByteBuffer offsetsByteBuffer = ByteBuffer.allocate(offsetsCount * Long.BYTES);
-            for (final Long i : offsets) {
-                offsetsByteBuffer.putLong(i);
-            }
-            offsetsByteBuffer.flip();
-            fileChannel.write(offsetsByteBuffer);
-            Files.move(path, pathComplete, StandardCopyOption.ATOMIC_MOVE);
+    private Item getItem(final long pos) {
+        final ByteBuffer rec = getRecord(pos);
+        final ByteBuffer key = getKey(rec);
+        final long timeStamp = getTimeStamp(rec);
+        final long timeToLive = getTimeToLive(rec);
+        ByteBuffer value;
+        if (timeStamp < 0) {
+            value = Item.TOMBSTONE;
+        } else {
+            value = getValue(rec);
         }
-        return pathComplete;
+        return Item.ofTTL(key, value, timeStamp, timeToLive);
     }
 
     /**
@@ -185,7 +191,7 @@ public final class SSTable {
      * @return iterator
      */
 
-    public Iterator<Item> iterator(final ByteBuffer from) {
+    Iterator<Item> iterator(final ByteBuffer from) {
         return new Iterator<>() {
             long pos = getPosition(from);
 

@@ -46,6 +46,10 @@ public final class Client {
         return ByteBuffer.wrap(value.getBytes(StandardCharsets.UTF_8));
     }
 
+    private static long ttlFrom(@NotNull final String ttl) {
+        return Long.parseLong(ttl);
+    }
+
     @NotNull
     private static String from(@NotNull final ByteBuffer value) {
         final byte[] bytes = new byte[value.remaining()];
@@ -83,6 +87,7 @@ public final class Client {
                 final String[] tokens = line.split(" ");
                 final String cmd = tokens[0];
                 final ByteBuffer key = ByteBuffer.wrap(tokens[1].getBytes(StandardCharsets.UTF_8));
+                final long ttl = tokens.length > 3 ? ttlFrom(tokens[3]) : -1;
 
                 switch (cmd) {
                     case "get":
@@ -96,7 +101,11 @@ public final class Client {
                         break;
 
                     case "put":
-                        dao.upsert(key, from(tokens[2]));
+                        if (tokens.length > 3) {
+                            dao.upsert(key, from(tokens[2]), ttl);
+                        } else {
+                            dao.upsert(key, from(tokens[2]));
+                        }
                         break;
 
                     case "remove":

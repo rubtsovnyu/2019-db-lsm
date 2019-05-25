@@ -12,7 +12,7 @@ import java.util.TreeMap;
  * Part of storage located in RAM.
  */
 
-public final class MemTable {
+final class MemTable {
     private final long flushThresholdInBytes;
 
     private final SortedMap<ByteBuffer, Item> data;
@@ -24,12 +24,12 @@ public final class MemTable {
      * @param heapSizeInBytes given JVM max heap size
      */
 
-    public MemTable(final long heapSizeInBytes) {
+    MemTable(final long heapSizeInBytes) {
         data = new TreeMap<>();
         flushThresholdInBytes = heapSizeInBytes / 16;
     }
 
-    public Iterator<Item> iterator(final ByteBuffer from) {
+    Iterator<Item> iterator(final ByteBuffer from) {
         return data.tailMap(from).values().iterator();
     }
 
@@ -42,8 +42,13 @@ public final class MemTable {
      * @param value value to be associated with the specified key
      */
 
-    public void upsert(final ByteBuffer key, final ByteBuffer value) {
+    void upsert(final ByteBuffer key, final ByteBuffer value) {
         final Item val = Item.of(key, value);
+        calcNewSize(data.put(key, val), val);
+    }
+
+    void upsert(final ByteBuffer key, final ByteBuffer value, long timeToLive) {
+        final Item val = Item.ofTTL(key, value, timeToLive);
         calcNewSize(data.put(key, val), val);
     }
 
@@ -53,7 +58,7 @@ public final class MemTable {
      * @param key that should be removed
      */
 
-    public void remove(final ByteBuffer key) {
+    void remove(final ByteBuffer key) {
         final Item dead = Item.removed(key);
         calcNewSize(data.put(key, dead), dead);
     }
@@ -66,7 +71,7 @@ public final class MemTable {
         }
     }
 
-    public boolean isFlushNeeded() {
+    boolean isFlushNeeded() {
         return sizeInBytes > flushThresholdInBytes;
     }
 
@@ -76,18 +81,18 @@ public final class MemTable {
      * @return path of new SSTable or null if something went wrong during flush
      */
 
-    public Path flush(final File ssTablesDir) throws IOException {
+    Path flush(final File ssTablesDir) throws IOException {
         final Path newSSTablePath = SSTable.writeNewTable(data.values().iterator(), ssTablesDir);
         clear();
         return newSSTablePath;
     }
 
-    public void clear() {
+    void clear() {
         data.clear();
         sizeInBytes = 0;
     }
 
-    public boolean isEmpty() {
+    boolean isEmpty() {
         return data.isEmpty();
     }
 }
