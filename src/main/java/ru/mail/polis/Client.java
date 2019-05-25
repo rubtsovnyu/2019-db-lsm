@@ -53,16 +53,8 @@ public final class Client {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
-    private static long ttlFrom(@NotNull final String[] tokens) {
-        long ttl = -1;
-        if (tokens.length > 3) {
-            try {
-                ttl  = Long.parseLong(tokens[3]);
-            } catch (NumberFormatException e) {
-                log.warn("wrong ttl, set to none");
-            }
-        }
-        return ttl;
+    private static long ttlFrom(@NotNull final String ttl) {
+        return Long.parseLong(ttl);
     }
 
     public static void main(final String[] args) throws IOException {
@@ -95,6 +87,7 @@ public final class Client {
                 final String[] tokens = line.split(" ");
                 final String cmd = tokens[0];
                 final ByteBuffer key = ByteBuffer.wrap(tokens[1].getBytes(StandardCharsets.UTF_8));
+                final long ttl = tokens.length > 3 ? ttlFrom(tokens[3]) : -1;
 
                 switch (cmd) {
                     case "get":
@@ -108,7 +101,7 @@ public final class Client {
                         break;
 
                     case "put":
-                        dao.upsert(key, from(tokens[2]), ttlFrom(tokens));
+                        dao.upsert(key, from(tokens[2]), ttl);
                         break;
 
                     case "remove":
