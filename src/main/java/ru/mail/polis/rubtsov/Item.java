@@ -98,10 +98,13 @@ public final class Item implements Comparable<Item> {
      */
 
     long getSizeInBytes() {
+        return getSizeInBytes(isRemoved());
+    }
+
+    long getSizeInBytes(final boolean removed) {
         final int keyRem = key.remaining();
-        final boolean isRemoved = isRemoved();
-        final int valRem = isRemoved ? 0 : value.remaining();
-        final int valLen = isRemoved ? 0 : Long.BYTES;
+        final int valRem = removed ? 0 : value.remaining();
+        final int valLen = removed ? 0 : Long.BYTES;
         return Integer.BYTES
                 + keyRem
                 + Long.BYTES

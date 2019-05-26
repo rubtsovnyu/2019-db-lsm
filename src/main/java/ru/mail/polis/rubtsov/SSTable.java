@@ -86,16 +86,11 @@ final class SSTable {
                 final Item item = items.next();
                 final ByteBuffer key = item.getKey();
                 final ByteBuffer value = item.getValue();
-                final int itemSize = (int) item.getSizeInBytes();
+                final boolean removed = item.isRemoved();
+                final int itemSize = (int) item.getSizeInBytes(removed);
                 final ByteBuffer row = ByteBuffer.allocate(itemSize);
-                // checks if item size equals to removed item size (no bytes for value)
-                // made because we must check is item expired only one time (in Item.getSizeInBytes)
-                // so, we will not face to a problem where during one check
-                // the element was alive, and during another it was already deleted.
-                // and it works normally :)
-                final boolean isRemoved = itemSize == Integer.BYTES + key.remaining() + Long.BYTES * 2;
                 row.putInt(key.remaining()).put(key.duplicate());
-                if (isRemoved) {
+                if (removed) {
                     row.putLong(-item.getTimeStamp());
                 } else {
                     row.putLong(item.getTimeStamp()).putLong(value.remaining()).put(value.duplicate());
