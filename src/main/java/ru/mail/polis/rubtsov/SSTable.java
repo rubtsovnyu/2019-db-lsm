@@ -48,13 +48,13 @@ final class SSTable {
             recordsAmount = mappedByteBuffer.getLong(mappedByteBuffer.limit() - Long.BYTES);
             Preconditions.checkArgument(mappedByteBuffer.limit() > recordsAmount * 21);
             offsets = mappedByteBuffer.duplicate()
-                    .position((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
+                    .position((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 2)))
                     .limit(mappedByteBuffer.limit() - Long.BYTES)
                     .slice()
                     .asLongBuffer();
-            Preconditions.checkArgument(offsets.limit() == recordsAmount);
+            Preconditions.checkArgument(offsets.limit() == recordsAmount + 1);
             records = mappedByteBuffer.duplicate()
-                    .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 1)))
+                    .limit((int) (mappedByteBuffer.limit() - Long.BYTES * (recordsAmount + 2)))
                     .slice()
                     .asReadOnlyBuffer();
         }
@@ -90,13 +90,13 @@ final class SSTable {
                 final ByteBuffer row = ByteBuffer.allocate(itemSize);
                 // checks if item size equals to removed item size (no bytes for value)
                 // made because we must check is item expired only one time (in Item.getSizeInBytes)
-                // so, we will not face to a problem where, during one check
+                // so, we will not face to a problem where during one check
                 // the element was alive, and during another it was already deleted.
                 // and it works normally :)
                 final boolean isRemoved = itemSize == Integer.BYTES + key.remaining() + Long.BYTES * 2;
                 row.putInt(key.remaining()).put(key.duplicate());
                 if (isRemoved) {
-                    row.putLong(-item.getTimeStampAbs());
+                    row.putLong(-item.getTimeStamp());
                 } else {
                     row.putLong(item.getTimeStamp()).putLong(value.remaining()).put(value.duplicate());
                 }
@@ -106,12 +106,11 @@ final class SSTable {
                 row.flip();
                 fileChannel.write(row);
             }
-            final int offsetsCount = offsets.size();
-            offsets.set(offsetsCount - 1, (long) offsetsCount - 1);
-            final ByteBuffer offsetsByteBuffer = ByteBuffer.allocate(offsetsCount * Long.BYTES);
+            final ByteBuffer offsetsByteBuffer = ByteBuffer.allocate((offsets.size() + 1) * Long.BYTES);
             for (final Long i : offsets) {
                 offsetsByteBuffer.putLong(i);
             }
+            offsetsByteBuffer.putLong(offsets.size() - 1);
             offsetsByteBuffer.flip();
             fileChannel.write(offsetsByteBuffer);
             Files.move(path, pathComplete, StandardCopyOption.ATOMIC_MOVE);
@@ -119,36 +118,21 @@ final class SSTable {
         return pathComplete;
     }
 
-    private ByteBuffer getKey(final ByteBuffer record) {
-        final ByteBuffer rec = record.duplicate();
-        final int keySize = rec.getInt();
-        return rec.limit(Integer.BYTES + keySize).slice().asReadOnlyBuffer();
-    }
-
-    private long getTimeStamp(final ByteBuffer record) {
-        final ByteBuffer rec = record.duplicate();
-        rec.position(Integer.BYTES + rec.getInt());
-        return rec.getLong();
-    }
-
     private ByteBuffer getRecord(final long index) {
         final long offset = offsets.get((int) index);
-        final long recordLimit;
-        if (index == recordsAmount - 1) {
-            recordLimit = records.limit();
-        } else {
-            recordLimit = offsets.get((int) index + 1);
-        }
         return records.duplicate()
                 .position((int) offset)
-                .limit((int) recordLimit)
+                .limit((int) offsets.get((int) index + 1))
                 .slice()
                 .asReadOnlyBuffer();
     }
 
-    private long getTimeToLive(final ByteBuffer record) {
+    private ByteBuffer getKey(final ByteBuffer record) {
         final ByteBuffer rec = record.duplicate();
-        return rec.position(rec.limit() - Long.BYTES).getLong();
+        final int keySize = rec.getInt();
+        return rec.limit(Integer.BYTES + keySize)
+                .slice()
+                .asReadOnlyBuffer();
     }
 
     private ByteBuffer getValue(final ByteBuffer record) {
@@ -158,6 +142,16 @@ final class SSTable {
                 .limit(rec.limit() - Long.BYTES)
                 .slice()
                 .asReadOnlyBuffer();
+    }
+
+    private long getTimeStamp(final ByteBuffer record) {
+        final ByteBuffer rec = record.duplicate();
+        rec.position(Integer.BYTES + rec.getInt());
+        return rec.getLong();
+    }
+
+    private long getTimeToLive(final ByteBuffer record) {
+        return record.getLong(record.limit() - Long.BYTES);
     }
 
     private long getPosition(final ByteBuffer key) {
@@ -177,6 +171,19 @@ final class SSTable {
         return left;
     }
 
+    private Item getItem(final long pos) {
+        final ByteBuffer rec = getRecord(pos);
+        final ByteBuffer key = getKey(rec);
+        final long timeStamp = getTimeStamp(rec);
+        final boolean isRemoved = timeStamp < 0;
+        final long timeToLive = getTimeToLive(rec);
+        if (isRemoved) {
+            return Item.removed(key, Math.abs(timeStamp), timeToLive);
+        } else {
+            return Item.ofTTL(key, getValue(rec), Math.abs(timeStamp), timeToLive);
+        }
+    }
+
     /**
      * Returns file this SSTable associated with.
      *
@@ -184,20 +191,6 @@ final class SSTable {
      */
     File getTableFile() {
         return tableFile;
-    }
-
-    private Item getItem(final long pos) {
-        final ByteBuffer rec = getRecord(pos);
-        final ByteBuffer key = getKey(rec);
-        final long timeStamp = getTimeStamp(rec);
-        final long timeToLive = getTimeToLive(rec);
-        ByteBuffer value;
-        if (timeStamp < 0) {
-            value = Item.TOMBSTONE;
-        } else {
-            value = getValue(rec);
-        }
-        return Item.ofTTL(key, value, timeStamp, timeToLive);
     }
 
     /**

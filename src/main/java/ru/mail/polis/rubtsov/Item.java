@@ -9,7 +9,7 @@ import static java.util.Comparator.comparing;
 
 public final class Item implements Comparable<Item> {
     static final Comparator<Item> COMPARATOR = comparing(Item::getKey)
-            .thenComparing(comparing(Item::getTimeStampAbs).reversed());
+            .thenComparing(comparing(Item::getTimeStamp).reversed());
     static final ByteBuffer TOMBSTONE = ByteBuffer.allocate(0);
     static final long NO_TTL = -1;
 
@@ -17,35 +17,45 @@ public final class Item implements Comparable<Item> {
     private final ByteBuffer value;
     private final long timeStamp;
     private final long timeToLive;
+    private final boolean isRemoved;
 
-    private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp) {
+    private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final boolean isRemoved) {
         this.key = key;
         this.value = value;
         this.timeStamp = timeStamp;
+        this.isRemoved = isRemoved;
         this.timeToLive = NO_TTL;
     }
 
-    private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final long timeToLive) {
+    private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp,
+                 final boolean isRemoved, final long timeToLive) {
         this.key = key;
         this.value = value;
         this.timeStamp = timeStamp;
+        this.isRemoved = isRemoved;
         this.timeToLive = timeToLive;
     }
 
     public static Item of(final ByteBuffer key, final ByteBuffer value) {
-        return new Item(key.duplicate(), value.duplicate(), TimeUtils.getCurrentTime());
+        return new Item(key.duplicate(), value.duplicate(), TimeUtils.getCurrentTime(), false);
     }
 
     static Item ofTTL(final ByteBuffer key, final ByteBuffer value, final long timeToLive) {
-        return new Item(key.duplicate(), value.duplicate(), TimeUtils.getCurrentTime(), timeToLive);
+        return new Item(key.duplicate(), value.duplicate(),
+                TimeUtils.getCurrentTime(), false, timeToLive);
     }
 
-    static Item ofTTL(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final long timeToLive) {
-        return new Item(key.duplicate(), value.duplicate(), timeStamp, timeToLive);
+    static Item ofTTL(final ByteBuffer key, final ByteBuffer value,
+                      final long timeStamp, final long timeToLive) {
+        return new Item(key.duplicate(), value.duplicate(), timeStamp, false, timeToLive);
     }
 
     static Item removed(final ByteBuffer key) {
-        return new Item(key.duplicate(), TOMBSTONE, -TimeUtils.getCurrentTime());
+        return removed(key, TimeUtils.getCurrentTime(), NO_TTL);
+    }
+
+    static Item removed(final ByteBuffer key, final long timeStamp, final long timeToLive) {
+        return new Item(key.duplicate(), TOMBSTONE, timeStamp, true, timeToLive);
     }
 
     public ByteBuffer getKey() {
@@ -65,7 +75,7 @@ public final class Item implements Comparable<Item> {
     }
 
     boolean isRemoved() {
-        return timeStamp < 0 || hasTTL() && isExpired();
+        return isRemoved || hasTTL() && isExpired();
     }
 
     private boolean hasTTL() {
@@ -98,9 +108,5 @@ public final class Item implements Comparable<Item> {
                 + valRem
                 + valLen
                 + Long.BYTES;
-    }
-
-    long getTimeStampAbs() {
-        return Math.abs(timeStamp);
     }
 }
