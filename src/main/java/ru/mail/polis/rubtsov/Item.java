@@ -17,22 +17,22 @@ public final class Item implements Comparable<Item> {
     private final ByteBuffer value;
     private final long timeStamp;
     private final long timeToLive;
-    private final boolean isRemoved;
+    private final boolean removed;
 
-    private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final boolean isRemoved) {
+    private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp, final boolean removed) {
         this.key = key;
         this.value = value;
         this.timeStamp = timeStamp;
-        this.isRemoved = isRemoved;
+        this.removed = removed;
         this.timeToLive = NO_TTL;
     }
 
     private Item(final ByteBuffer key, final ByteBuffer value, final long timeStamp,
-                 final boolean isRemoved, final long timeToLive) {
+                 final boolean removed, final long timeToLive) {
         this.key = key;
         this.value = value;
         this.timeStamp = timeStamp;
-        this.isRemoved = isRemoved;
+        this.removed = removed;
         this.timeToLive = timeToLive;
     }
 
@@ -75,7 +75,7 @@ public final class Item implements Comparable<Item> {
     }
 
     boolean isRemoved() {
-        return isRemoved || hasTTL() && isExpired();
+        return removed || hasTTL() && isExpired();
     }
 
     private boolean hasTTL() {
