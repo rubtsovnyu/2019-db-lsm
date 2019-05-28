@@ -10,6 +10,7 @@ import ru.mail.polis.Record;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,7 @@ public class MyDAO implements DAO {
     private static final int COMPACTION_THRESHOLD = 8;
 
     private final MemTable memTable;
+    private final MemoryBDTable memoryBDTable;
     private final List<SSTable> ssTables = new ArrayList<>();
     private final File ssTablesDir;
     private static final Logger logger = LoggerFactory.getLogger(MyDAO.class);
@@ -39,6 +41,7 @@ public class MyDAO implements DAO {
     public MyDAO(final File dataFolder, final long heapSizeInBytes) throws IOException {
         memTable = new MemTable(heapSizeInBytes);
         ssTablesDir = dataFolder;
+        memoryBDTable = new MemoryBDTable(dataFolder.toPath());
         try (Stream<Path> files = Files.list(ssTablesDir.toPath())) {
             files.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().endsWith(SSTable.VALID_FILE_EXTENSTION))
@@ -96,6 +99,15 @@ public class MyDAO implements DAO {
         }
     }
 
+    public InputStream getBigValue(ByteBuffer key) throws IOException {
+        return memoryBDTable.get(key);
+    }
+
+    @Override
+    public void upsert(@NotNull final ByteBuffer key, @NotNull final InputStream value) throws IOException {
+        memoryBDTable.upsert(key, value);
+    }
+
     @Override
     public void remove(@NotNull final ByteBuffer key) throws IOException {
         memTable.remove(key);
@@ -109,6 +121,7 @@ public class MyDAO implements DAO {
         if (!memTable.isEmpty()) {
             memTable.flush(ssTablesDir);
         }
+        memoryBDTable.close();
     }
 
     private void flushTable() throws IOException {

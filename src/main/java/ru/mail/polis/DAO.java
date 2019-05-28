@@ -21,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -94,11 +95,24 @@ public interface DAO extends Closeable {
     /**
      * Inserts or updates value by given key with time-to-live in millis.
      */
-
-    void upsert(
+    default void upsert(
             @NotNull ByteBuffer key,
             @NotNull ByteBuffer value,
-            long timeToLive) throws IOException;
+            long timeToLive) throws IOException {
+        throw new UnsupportedOperationException("Implement me");
+    }
+
+    /**
+     * Inserts or updates value by given key if value size so big.
+     * @param key
+     * @param value
+     * @throws IOException
+     */
+    default void upsert(
+            @NotNull ByteBuffer key,
+            @NotNull InputStream value) throws IOException {
+        throw new UnsupportedOperationException("Implement me");
+    }
 
     /**
      * Removes value by given key.
