@@ -92,6 +92,15 @@ public interface DAO extends Closeable {
             @NotNull ByteBuffer value) throws IOException;
 
     /**
+     * Inserts or updates value by given key with time-to-live in millis.
+     */
+
+    void upsert(
+            @NotNull ByteBuffer key,
+            @NotNull ByteBuffer value,
+            long timeToLive) throws IOException;
+
+    /**
      * Removes value by given key.
      */
     void remove(@NotNull ByteBuffer key) throws IOException;
@@ -99,7 +108,5 @@ public interface DAO extends Closeable {
     /**
      * Perform compaction
      */
-    default void compact() throws IOException {
-        // Implement me when you get to stage 3
-    }
+    void compact() throws IOException;
 }
